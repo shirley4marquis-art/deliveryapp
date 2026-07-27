@@ -185,6 +185,7 @@ $$;
 alter table public.shipments enable row level security;
 alter table public.tracking_events enable row level security;
 alter table public.admin_users enable row level security;
+alter table public.shipment_email_logs enable row level security;
 
 drop policy if exists "Admins can view shipments" on public.shipments;
 drop policy if exists "Admins can create shipments" on public.shipments;
@@ -195,6 +196,8 @@ drop policy if exists "Admins can create tracking events" on public.tracking_eve
 drop policy if exists "Admins can update tracking events" on public.tracking_events;
 drop policy if exists "Admins can delete tracking events" on public.tracking_events;
 drop policy if exists "Admins can view admin users" on public.admin_users;
+drop policy if exists "Admins can view email logs" on public.shipment_email_logs;
+drop policy if exists "Admins can create email logs" on public.shipment_email_logs;
 
 create policy "Admins can view shipments"
 on public.shipments for select
@@ -242,6 +245,16 @@ create policy "Admins can view admin users"
 on public.admin_users for select
 to authenticated
 using (user_id = auth.uid() or public.is_admin());
+
+create policy "Admins can view email logs"
+on public.shipment_email_logs for select
+to authenticated
+using (public.is_admin());
+
+create policy "Admins can create email logs"
+on public.shipment_email_logs for insert
+to authenticated
+with check (public.is_admin());
 
 revoke all on public.shipments from anon;
 revoke all on public.tracking_events from anon;

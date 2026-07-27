@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, RefreshCw, Save, Search, Trash2, PackagePlus } from "lucide-react";
+import { Plus, RefreshCw, Save, Search, Trash2, PackagePlus, Mail, X } from "lucide-react";
 import {
   AddressAutocomplete,
   type VerifiedAddress,
@@ -17,6 +17,10 @@ const deliveryServices = [
   "Business courier",
   "Secure document delivery",
   "Express tracked delivery",
+  "International tracked — USA",
+  "International tracked — Canada",
+  "International express — USA",
+  "International express — Canada",
 ] as const;
 
 function toDatetimeLocal(iso?: string) {
@@ -97,21 +101,43 @@ export function AdminDashboard() {
   const [loading, setLoading] = useState(false);
   const [loadingShipments, setLoadingShipments] = useState(true);
   const [toast, setToast] = useState<Toast | null>(null);
+  const [emailComposer, setEmailComposer] = useState<{
+    shipment: Shipment;
+    subject: string;
+    message: string;
+  } | null>(null);
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   function showToast(message: string, type: Toast["type"]) {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4500);
   }
 
-  async function sendEmailForShipment(shipmentId: string) {
+  function openEmailComposer(shipment: Shipment) {
+    setEmailComposer({
+      shipment,
+      subject: `TBC shipment update — ${shipment.tracking_number}`,
+      message: `We are writing with an update about your shipment.\n\nCurrent status: ${shipment.current_status}\nEstimated delivery: ${shipment.estimated_delivery_date}\n\nYou can use the button below to view the latest tracking information.`,
+    });
+  }
+
+  async function sendEmailForShipment() {
+    if (!emailComposer) return;
+    setSendingEmail(true);
     const res = await fetch("/api/admin/send-email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ shipment_id: shipmentId }),
+      body: JSON.stringify({
+        shipment_id: emailComposer.shipment.id,
+        subject: emailComposer.subject,
+        message: emailComposer.message,
+      }),
     });
     const data = await res.json();
+    setSendingEmail(false);
     if (res.ok) {
       showToast("Email sent to receiver successfully.", "success");
+      setEmailComposer(null);
     } else {
       showToast(`Email failed: ${data.error || "Unknown error"}`, "error");
     }
@@ -269,14 +295,10 @@ export function AdminDashboard() {
     }
 
     setMessage(editingId ? "Shipment updated." : "Shipment created.");
-    const savedShipmentId: string = data.shipment?.id ?? editingId;
     setForm(emptyShipment());
     setEditingId("");
     await loadShipments();
 
-    if (savedShipmentId) {
-      await sendEmailForShipment(savedShipmentId);
-    }
   }
 
   async function deleteShipment(id: string) {
@@ -350,7 +372,6 @@ export function AdminDashboard() {
     }
 
     setMessage("Timeline event added and status updated.");
-    const shipmentIdForEmail = timeline.shipmentId;
     setTimeline({
       shipmentId: "",
       event_date: "",
@@ -362,26 +383,8 @@ export function AdminDashboard() {
     });
     await loadShipments();
 
-    if (shipmentIdForEmail) {
-      if (timeline.status === "Customs/Processing Check" && timeline.customs_charge_amount) {
-        await sendCustomsEmailForShipment(shipmentIdForEmail, timeline.customs_charge_amount);
-      } else {
-        await sendEmailForShipment(shipmentIdForEmail);
-      }
-    }
-  }
-
-  async function sendCustomsEmailForShipment(shipmentId: string, chargeAmount: string) {
-    const res = await fetch("/api/admin/send-customs-email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ shipment_id: shipmentId, charge_amount: chargeAmount }),
-    });
-    const data = await res.json();
-    if (res.ok) {
-      showToast("Customs charge email sent to receiver.", "success");
-    } else {
-      showToast(`Customs email failed: ${data.error || "Unknown error"}`, "error");
+    if (timeline.status === "Customs/Processing Check" && timeline.customs_charge_amount) {
+      showToast("Event saved. Review the shipment and send its email when ready.", "success");
     }
   }
 
@@ -448,6 +451,37 @@ export function AdminDashboard() {
         <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-xl px-5 py-4 text-sm font-bold text-white shadow-2xl ${toast.type === "success" ? "bg-green-600" : "bg-red-600"}`}>
           <span>{toast.type === "success" ? "✓" : "✕"}</span>
           {toast.message}
+        </div>
+      )}
+
+      {emailComposer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#07152f]/60 p-4">
+          <section className="w-full max-w-2xl rounded-xl bg-white p-6 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="email-composer-title">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-xl font-black" id="email-composer-title">Draft customer email</h3>
+                <p className="mt-1 text-sm text-[#50627f]">
+                  {emailComposer.shipment.tracking_number} · {emailComposer.shipment.receiver_name} · {emailComposer.shipment.receiver_email || "No customer email"}
+                </p>
+              </div>
+              <button className="rounded-lg p-2 hover:bg-slate-100" onClick={() => setEmailComposer(null)} type="button" aria-label="Close email composer"><X size={20} /></button>
+            </div>
+            <label className="mt-5 block">
+              <span className="text-sm font-bold text-[#10213f]">Subject</span>
+              <input className="mt-2 h-11 w-full rounded-lg border border-slate-300 px-4 outline-none focus:border-[#0047bb]" value={emailComposer.subject} onChange={(event) => setEmailComposer({ ...emailComposer, subject: event.target.value })} />
+            </label>
+            <label className="mt-4 block">
+              <span className="text-sm font-bold text-[#10213f]">Message</span>
+              <textarea className="mt-2 min-h-56 w-full rounded-lg border border-slate-300 p-4 outline-none focus:border-[#0047bb]" value={emailComposer.message} onChange={(event) => setEmailComposer({ ...emailComposer, message: event.target.value })} />
+            </label>
+            <p className="mt-3 text-xs text-[#50627f]">The branded company header, shipment tracking button, and footer are added automatically.</p>
+            <div className="mt-5 flex justify-end gap-3">
+              <button className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-bold" onClick={() => setEmailComposer(null)} type="button">Cancel</button>
+              <button className="inline-flex items-center gap-2 rounded-lg bg-[#0047bb] px-5 py-3 text-sm font-bold text-white disabled:opacity-50" disabled={sendingEmail || !emailComposer.shipment.receiver_email || !emailComposer.subject.trim() || !emailComposer.message.trim()} onClick={sendEmailForShipment} type="button">
+                <Mail size={16} /> {sendingEmail ? "Sending..." : "Send email"}
+              </button>
+            </div>
+          </section>
         </div>
       )}
 
@@ -559,7 +593,7 @@ export function AdminDashboard() {
 
           {timeline.status === "Customs/Processing Check" && (
             <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
-              <p className="text-sm font-bold text-amber-800">Customs charge email will be sent automatically</p>
+              <p className="text-sm font-bold text-amber-800">Customs charge details</p>
               <p className="mt-1 text-xs text-amber-700">Enter the import VAT amount to include in the email to the receiver.</p>
               <div className="mt-3 flex items-center gap-2">
                 <span className="text-sm font-bold text-amber-800">£</span>
@@ -623,11 +657,11 @@ export function AdminDashboard() {
                   </button>
                   <button
                     className="inline-flex items-center gap-2 rounded-lg border border-[#0047bb] px-3 py-2 text-sm font-bold text-[#0047bb]"
-                    onClick={() => sendEmailForShipment(shipment.id)}
-                    title="Send status email to receiver"
+                    onClick={() => openEmailComposer(shipment)}
+                    title="Draft an email to this receiver"
                     type="button"
                   >
-                    ✉ Email
+                    <Mail size={15} /> Draft email
                   </button>
                   <button className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm font-bold text-red-700" onClick={() => deleteShipment(shipment.id)} type="button">
                     <Trash2 size={15} /> Delete

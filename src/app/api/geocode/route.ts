@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   try {
     const url = new URL("https://nominatim.openstreetmap.org/search");
     url.searchParams.set("q", q);
-    url.searchParams.set("countrycodes", "gb");
+    url.searchParams.set("countrycodes", "gb,us,ca");
     url.searchParams.set("format", "json");
     url.searchParams.set("addressdetails", "1");
     url.searchParams.set("limit", "7");

@@ -1,7 +1,8 @@
 import { Resend } from "resend";
 
-const FROM = "TBC <contact@royalruns.co.uk>";
-const SITE_URL = "https://royalruns.co.uk";
+const FROM = process.env.RESEND_FROM_EMAIL || "Royal Runs Delivery <office@royalruns.co.uk>";
+const SITE_URL = process.env.SITE_URL || "https://royalruns.co.uk";
+const SUPPORT_EMAIL = "office@royalruns.co.uk";
 
 export type EmailData = {
   receiverName: string;
@@ -90,7 +91,7 @@ const STATUS_CONFIGS: Record<string, StatusConfig> = {
     emoji: "⏸️",
     headline: "Shipment On Hold",
     bodyText:
-      "Your parcel is currently on hold. Please contact TBC support at contact@royalruns.co.uk or call 07346 535643 for more information and to resolve the hold.",
+      `Your parcel is currently on hold. Please contact TBC support at ${SUPPORT_EMAIL} or call 07346 535643 for more information and to resolve the hold.`,
     headerColor: "#dc2626",
   },
 };
@@ -215,7 +216,7 @@ function generateEmailHtml(data: EmailData, config: StatusConfig): string {
           <tr>
             <td style="padding:24px 36px;background:#f8faff;">
               <p style="color:#07152f;font-size:14px;font-weight:700;margin:0 0 4px;">TBC Courier Service</p>
-              <p style="color:#50627f;font-size:12px;margin:0 0 2px;">📧 contact@royalruns.co.uk</p>
+              <p style="color:#50627f;font-size:12px;margin:0 0 2px;">📧 ${SUPPORT_EMAIL}</p>
               <p style="color:#50627f;font-size:12px;margin:0 0 12px;">📞 07346 535643</p>
               <p style="color:#9bb8ea;font-size:11px;margin:0;">
                 This email was sent because a TBC shipment with tracking number
@@ -238,6 +239,53 @@ export type SendEmailResult = {
   emailId?: string;
   error?: string;
 };
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+export async function sendCustomEmail({
+  receiverEmail,
+  receiverName,
+  subject,
+  message,
+  trackingNumber,
+}: {
+  receiverEmail: string;
+  receiverName: string;
+  subject: string;
+  message: string;
+  trackingNumber: string;
+}): Promise<SendEmailResult> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return { success: false, error: "RESEND_API_KEY is not configured." };
+
+  const trackingLink = `${SITE_URL}/track?q=${encodeURIComponent(trackingNumber)}`;
+  const html = `<!doctype html><html lang="en"><body style="margin:0;background:#f3f7ff;font-family:Arial,Helvetica,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 16px"><tr><td align="center">
+  <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fff;border-radius:12px;overflow:hidden">
+  <tr><td style="background:#0047bb;padding:28px 36px;color:#fff"><strong style="font-size:22px">TBC</strong><br><span style="font-size:11px;opacity:.75">DELIVERY SERVICE</span></td></tr>
+  <tr><td style="padding:36px;color:#10213f;font-size:15px;line-height:1.7"><p style="margin-top:0">Hello <strong>${escapeHtml(receiverName)}</strong>,</p>
+  <div>${escapeHtml(message).replaceAll("\n", "<br>")}</div>
+  <p style="margin:28px 0 0"><a href="${trackingLink}" style="display:inline-block;background:#0047bb;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:700">Track shipment</a></p>
+  <p style="color:#50627f;font-size:12px">Tracking number: <strong>${escapeHtml(trackingNumber)}</strong></p></td></tr>
+  <tr><td style="background:#f8faff;padding:22px 36px;color:#50627f;font-size:12px">TBC Courier Service · ${SUPPORT_EMAIL}</td></tr>
+  </table></td></tr></table></body></html>`;
+
+  try {
+    const resend = new Resend(apiKey);
+    const result = await resend.emails.send({ from: FROM, to: receiverEmail, subject, html });
+    if (result.error) return { success: false, error: result.error.message || JSON.stringify(result.error) };
+    return { success: true, emailId: result.data?.id };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Unknown email error." };
+  }
+}
 
 export async function sendStatusEmail(data: EmailData): Promise<SendEmailResult> {
   const apiKey = process.env.RESEND_API_KEY;

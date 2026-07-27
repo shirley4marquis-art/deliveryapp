@@ -95,11 +95,11 @@ export default function Home() {
               TBC Courier Service
             </p>
             <h1 className="mt-4 text-5xl font-black leading-tight tracking-tight md:text-6xl">
-              Fast, Secure &amp; Reliable UK Parcel Delivery
+              Fast, Secure &amp; Reliable International Parcel Delivery
             </h1>
             <p className="mt-5 max-w-xl text-lg leading-8 text-[#10213f]">
               Book shipments, track every scan, and manage deliveries across the
-              UK with a professional courier platform built for speed and trust.
+              UK, USA, and Canada with a professional courier platform built for speed and trust.
             </p>
 
             <HomeTrackForm />

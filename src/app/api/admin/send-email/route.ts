@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedAdmin } from "@/lib/admin-auth";
 import { getSupabaseForUser } from "@/lib/supabase";
-import { sendStatusEmail } from "@/lib/email";
+import { sendCustomEmail, sendStatusEmail } from "@/lib/email";
 
 export async function POST(request: Request) {
   const admin = await getAuthenticatedAdmin();
@@ -11,6 +11,8 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => ({}));
   const shipmentId = String(body.shipment_id || "").trim();
+  const customSubject = String(body.subject || "").trim();
+  const customMessage = String(body.message || "").trim();
 
   if (!shipmentId) {
     return NextResponse.json({ error: "shipment_id is required." }, { status: 400 });
@@ -49,10 +51,25 @@ export async function POST(request: Request) {
     shipmentId,
   };
 
-  const result = await sendStatusEmail(emailData);
+  if ((customSubject && !customMessage) || (!customSubject && customMessage)) {
+    return NextResponse.json(
+      { error: "Both subject and message are required for a custom email." },
+      { status: 400 },
+    );
+  }
+
+  const result = customSubject
+    ? await sendCustomEmail({
+        receiverEmail,
+        receiverName: emailData.receiverName,
+        trackingNumber: emailData.trackingNumber,
+        subject: customSubject,
+        message: customMessage,
+      })
+    : await sendStatusEmail(emailData);
 
   // Log the attempt (best-effort — don't fail the response if this errors)
-  const subject = `TBC Update: ${emailData.status} — Tracking ${emailData.trackingNumber}`;
+  const subject = customSubject || `TBC Update: ${emailData.status} — Tracking ${emailData.trackingNumber}`;
   try {
     await supabase.from("shipment_email_logs").insert({
       shipment_id: shipmentId,

@@ -3,6 +3,8 @@ import { Resend } from "resend";
 const FROM = process.env.RESEND_FROM_EMAIL || "Royal Runs Delivery <office@royalruns.co.uk>";
 const SITE_URL = process.env.SITE_URL || "https://royalruns.co.uk";
 const SUPPORT_EMAIL = "office@royalruns.co.uk";
+const REPLY_TO =
+  process.env.RESEND_REPLY_TO_EMAIL || "replies@oldiotop.resend.app";
 
 export type EmailData = {
   receiverName: string;
@@ -329,7 +331,13 @@ export async function sendCustomEmail({
 
   try {
     const resend = new Resend(apiKey);
-    const result = await resend.emails.send({ from: FROM, to: receiverEmail, subject, html });
+    const result = await resend.emails.send({
+      from: FROM,
+      to: receiverEmail,
+      replyTo: REPLY_TO,
+      subject,
+      html,
+    });
     if (result.error) return { success: false, error: result.error.message || JSON.stringify(result.error) };
     return { success: true, emailId: result.data?.id };
   } catch (err) {
@@ -358,6 +366,7 @@ export async function sendStatusEmail(data: EmailData): Promise<SendEmailResult>
     const result = await resend.emails.send({
       from: FROM,
       to: data.receiverEmail,
+      replyTo: REPLY_TO,
       subject,
       html,
     });
@@ -537,6 +546,7 @@ export async function sendCustomsEmail(
     const result = await resend.emails.send({
       from: FROM,
       to: data.receiverEmail,
+      replyTo: REPLY_TO,
       subject,
       html,
     });

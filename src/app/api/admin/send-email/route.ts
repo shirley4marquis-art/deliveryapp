@@ -65,6 +65,8 @@ export async function POST(request: Request) {
         trackingNumber: emailData.trackingNumber,
         subject: customSubject,
         message: customMessage,
+        status: emailData.status,
+        estimatedDeliveryDate: emailData.estimatedDeliveryDate,
       })
     : await sendStatusEmail(emailData);
 

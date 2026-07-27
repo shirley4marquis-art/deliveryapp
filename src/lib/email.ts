@@ -255,27 +255,77 @@ export async function sendCustomEmail({
   subject,
   message,
   trackingNumber,
+  status,
+  estimatedDeliveryDate,
 }: {
   receiverEmail: string;
   receiverName: string;
   subject: string;
   message: string;
   trackingNumber: string;
+  status: string;
+  estimatedDeliveryDate: string;
 }): Promise<SendEmailResult> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return { success: false, error: "RESEND_API_KEY is not configured." };
 
   const trackingLink = `${SITE_URL}/track?q=${encodeURIComponent(trackingNumber)}`;
-  const html = `<!doctype html><html lang="en"><body style="margin:0;background:#f3f7ff;font-family:Arial,Helvetica,sans-serif">
-  <table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 16px"><tr><td align="center">
-  <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fff;border-radius:12px;overflow:hidden">
-  <tr><td style="background:#0047bb;padding:28px 36px;color:#fff"><strong style="font-size:22px">TBC</strong><br><span style="font-size:11px;opacity:.75">DELIVERY SERVICE</span></td></tr>
-  <tr><td style="padding:36px;color:#10213f;font-size:15px;line-height:1.7"><p style="margin-top:0">Hello <strong>${escapeHtml(receiverName)}</strong>,</p>
-  <div>${escapeHtml(message).replaceAll("\n", "<br>")}</div>
-  <p style="margin:28px 0 0"><a href="${trackingLink}" style="display:inline-block;background:#0047bb;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:700">Track shipment</a></p>
-  <p style="color:#50627f;font-size:12px">Tracking number: <strong>${escapeHtml(trackingNumber)}</strong></p></td></tr>
-  <tr><td style="background:#f8faff;padding:22px 36px;color:#50627f;font-size:12px">TBC Courier Service · ${SUPPORT_EMAIL}</td></tr>
-  </table></td></tr></table></body></html>`;
+  const html = `<!doctype html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(subject)}</title></head>
+<body style="margin:0;padding:0;background:#f3f7ff;font-family:Arial,Helvetica,sans-serif;color:#07152f">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f7ff;padding:32px 16px">
+    <tr><td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 8px 30px rgba(7,21,47,.12)">
+        <tr>
+          <td style="background:#07152f;padding:28px 36px;border-bottom:5px solid #ef3340">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td>
+                  <div style="color:#ffffff;font-size:25px;font-weight:900;letter-spacing:-.5px">Royal Runs</div>
+                  <div style="margin-top:5px;color:#9bb8ea;font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase">Delivery &amp; Parcel Services</div>
+                </td>
+                <td align="right"><span style="display:inline-block;background:#0047bb;color:#ffffff;border-radius:999px;padding:8px 13px;font-size:11px;font-weight:700">SHIPMENT UPDATE</span></td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:38px 36px 30px">
+            <p style="margin:0 0 16px;color:#07152f;font-size:17px">Hello <strong>${escapeHtml(receiverName)}</strong>,</p>
+            <div style="color:#10213f;font-size:15px;line-height:1.75">${escapeHtml(message).replaceAll("\n", "<br>")}</div>
+
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:28px;background:#f7faff;border:1px solid #c8d9f5;border-radius:10px">
+              <tr><td style="padding:22px 24px">
+                <div style="margin-bottom:14px;color:#0047bb;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase">Shipment details</div>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                  <tr><td style="padding:5px 0;color:#50627f;font-size:13px">Tracking number</td><td align="right" style="padding:5px 0;color:#07152f;font-family:monospace;font-size:14px;font-weight:800">${escapeHtml(trackingNumber)}</td></tr>
+                  <tr><td style="padding:5px 0;color:#50627f;font-size:13px">Current status</td><td align="right" style="padding:5px 0;color:#0047bb;font-size:13px;font-weight:800">${escapeHtml(status)}</td></tr>
+                  <tr><td style="padding:5px 0;color:#50627f;font-size:13px">Estimated delivery</td><td align="right" style="padding:5px 0;color:#07152f;font-size:13px;font-weight:700">${escapeHtml(formatDate(estimatedDeliveryDate))}</td></tr>
+                </table>
+              </td></tr>
+            </table>
+
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:28px">
+              <tr><td align="center">
+                <a href="${trackingLink}" style="display:inline-block;background:#0047bb;color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:8px;font-size:15px;font-weight:800">Track your shipment →</a>
+              </td></tr>
+            </table>
+            <p style="margin:22px 0 0;text-align:center;color:#50627f;font-size:11px;line-height:1.6">For your security, verify any payment instructions directly with Royal Runs Delivery before making a payment.</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#07152f;padding:24px 36px;color:#ffffff">
+            <div style="font-size:14px;font-weight:800">Royal Runs Delivery</div>
+            <div style="margin-top:6px;color:#9bb8ea;font-size:12px">${SUPPORT_EMAIL} · 07346 535643</div>
+            <div style="margin-top:12px;color:#6f8dbd;font-size:10px;line-height:1.5">This message relates to shipment ${escapeHtml(trackingNumber)}. Please contact us if you believe it was sent in error.</div>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
 
   try {
     const resend = new Resend(apiKey);

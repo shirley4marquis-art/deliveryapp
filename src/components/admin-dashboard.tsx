@@ -9,6 +9,7 @@ import {
 } from "@/components/address-autocomplete";
 import { AdminRouteMap } from "@/components/admin-route-map";
 import { parcelStatuses, type ParcelStatus, type Shipment } from "@/lib/types";
+import { parsePastedOrder } from "@/lib/order-import";
 
 const deliveryServices = [
   "Same-day delivery",
@@ -107,6 +108,8 @@ export function AdminDashboard() {
     message: string;
   } | null>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [pastedOrder, setPastedOrder] = useState("");
+  const [importingOrder, setImportingOrder] = useState(false);
 
   function showToast(message: string, type: Toast["type"]) {
     setToast({ message, type });
@@ -119,6 +122,66 @@ export function AdminDashboard() {
       subject: `TBC shipment update — ${shipment.tracking_number}`,
       message: `We are writing with an update about your shipment.\n\nCurrent status: ${shipment.current_status}\nEstimated delivery: ${shipment.estimated_delivery_date}\n\nYou can use the button below to view the latest tracking information.`,
     });
+  }
+
+  async function inspectPastedOrder(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const imported = parsePastedOrder(pastedOrder);
+
+    if (
+      imported.source === "Unknown sender" ||
+      !imported.customerName ||
+      !imported.customerEmail ||
+      !imported.deliveryAddress
+    ) {
+      showToast(
+        "The order format was not recognised or required customer details are missing.",
+        "error",
+      );
+      return;
+    }
+
+    setImportingOrder(true);
+    const response = await fetch("/api/admin/shipments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "generate-tracking-number" }),
+    });
+    const data = await response.json();
+    setImportingOrder(false);
+
+    if (!response.ok) {
+      showToast(data.error || "Unable to generate a tracking number.", "error");
+      return;
+    }
+
+    const eta = new Date();
+    eta.setDate(eta.getDate() + 3);
+    setEditingId("");
+    setForm({
+      ...emptyShipment(),
+      tracking_number: data.trackingNumber,
+      sender_name: imported.source,
+      sender_address: "",
+      sender_city: "",
+      receiver_name: imported.customerName,
+      receiver_email: imported.customerEmail,
+      receiver_address: imported.deliveryAddress,
+      receiver_city: imported.deliveryCity,
+      receiver_postcode: imported.deliveryPostcode,
+      package_type: imported.items.join("; ") || "Customer order",
+      weight: "To be confirmed",
+      delivery_service: /standard|royal mail/i.test(imported.courier)
+        ? "Standard delivery (2–3 days)"
+        : imported.courier,
+      estimated_delivery_date: eta.toISOString().slice(0, 10),
+      notes: imported.notes,
+    });
+    showToast(
+      `${imported.source} order inspected. Confirm the sender address, weight and ETA, then save the shipment.`,
+      "success",
+    );
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function sendEmailForShipment() {
@@ -484,6 +547,51 @@ export function AdminDashboard() {
           </section>
         </div>
       )}
+
+      <form
+        className="rounded-lg border border-[#c8d9f5] bg-white p-5 shadow-sm"
+        onSubmit={inspectPastedOrder}
+      >
+        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h3 className="text-xl font-black">Paste a new order</h3>
+            <p className="mt-1 text-sm text-[#50627f]">
+              Supports Ruco Supply and 1:1 Connect order formats. Customer,
+              address, items, courier and totals are inspected automatically.
+            </p>
+          </div>
+          <span className="rounded-full bg-[#f3f7ff] px-3 py-1 text-xs font-bold text-[#0047bb]">
+            Review before saving
+          </span>
+        </div>
+        <label className="mt-4 block">
+          <span className="sr-only">Pasted order text</span>
+          <textarea
+            className="min-h-64 w-full rounded-lg border border-slate-300 p-4 font-mono text-sm leading-6 outline-none focus:border-[#0047bb]"
+            onChange={(event) => setPastedOrder(event.target.value)}
+            placeholder="Paste the complete new-order message here…"
+            required
+            value={pastedOrder}
+          />
+        </label>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <button
+            className="inline-flex items-center gap-2 rounded-lg bg-[#07152f] px-5 py-3 text-sm font-bold text-white disabled:opacity-50"
+            disabled={importingOrder || !pastedOrder.trim()}
+            type="submit"
+          >
+            <PackagePlus size={16} />
+            {importingOrder ? "Inspecting order..." : "Inspect & prepare shipment"}
+          </button>
+          <button
+            className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-bold"
+            onClick={() => setPastedOrder("")}
+            type="button"
+          >
+            Clear
+          </button>
+        </div>
+      </form>
 
       <section className="grid gap-6 lg:grid-cols-[1fr_0.75fr]">
         <form className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm" onSubmit={saveShipment}>

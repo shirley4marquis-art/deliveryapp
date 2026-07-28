@@ -133,6 +133,7 @@ export function AdminDashboard() {
     message: string;
   } | null>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [sendingRucoBatch, setSendingRucoBatch] = useState(false);
   const [pastedOrder, setPastedOrder] = useState("");
   const [importingOrder, setImportingOrder] = useState(false);
 
@@ -299,6 +300,66 @@ Customs & Clearance Team`,
       setError(data.error || "Unable to load shipments.");
     }
   }, [router]);
+
+  async function sendRucoVatBatch() {
+    setSendingRucoBatch(true);
+    const previewResponse = await fetch("/api/admin/ruco-vat-batch");
+    const preview = await previewResponse.json();
+
+    if (!previewResponse.ok) {
+      setSendingRucoBatch(false);
+      showToast(preview.error || "Unable to prepare the Ruco recipient list.", "error");
+      return;
+    }
+
+    if (preview.recipients?.length !== preview.expected) {
+      setSendingRucoBatch(false);
+      showToast(
+        `Expected ${preview.expected} Ruco recipients but found ${preview.recipients?.length || 0}. No emails were sent.`,
+        "error",
+      );
+      return;
+    }
+
+    const recipientList = preview.recipients
+      .map(
+        (recipient: { name: string; email: string; trackingNumber: string }) =>
+          `${recipient.name} — ${recipient.email} — ${recipient.trackingNumber}`,
+      )
+      .join("\n");
+    const confirmed = window.confirm(
+      `Send the £110 VAT/on-hold email to these four Ruco customers?\n\n${recipientList}\n\nThis action sends real emails and changes each shipment status to On Hold.`,
+    );
+
+    if (!confirmed) {
+      setSendingRucoBatch(false);
+      showToast("Bulk send cancelled. No emails were sent.", "success");
+      return;
+    }
+
+    const response = await fetch("/api/admin/ruco-vat-batch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirm: true }),
+    });
+    const result = await response.json();
+    setSendingRucoBatch(false);
+    await loadShipments();
+
+    if (response.ok && result.sentCount === result.expected) {
+      showToast("All four Ruco VAT emails were sent successfully.", "success");
+      return;
+    }
+
+    const failures = (result.results || [])
+      .filter((item: { sent: boolean }) => !item.sent)
+      .map((item: { name: string; error?: string }) => `${item.name}: ${item.error || "Failed"}`)
+      .join("; ");
+    showToast(
+      `${result.sentCount || 0} of ${result.expected || 4} emails sent. ${failures || result.error || ""}`,
+      "error",
+    );
+  }
 
   useEffect(() => {
     void fetch("/api/admin/shipments").then(async (response) => {
@@ -548,6 +609,15 @@ Customs & Clearance Team`,
           >
             <PackagePlus size={16} />
             New Shipment
+          </button>
+          <button
+            className="inline-flex items-center gap-2 rounded-lg border border-yellow-400 bg-yellow-100 px-4 py-2 text-sm font-bold text-yellow-950 disabled:opacity-50"
+            disabled={sendingRucoBatch}
+            onClick={sendRucoVatBatch}
+            type="button"
+          >
+            <Mail size={16} />
+            {sendingRucoBatch ? "Preparing Ruco emails..." : "Send 4 Ruco VAT emails"}
           </button>
           <button className="rounded-lg border border-[#0047bb] px-4 py-2 text-sm font-bold text-[#0047bb] hover:bg-white" onClick={logout} type="button">
             Sign out

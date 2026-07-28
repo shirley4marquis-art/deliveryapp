@@ -91,22 +91,25 @@ async function geocodeAddress(address: string) {
 
 type Toast = { message: string; type: "success" | "error" };
 
-function getOrderSourceTag(senderName: string) {
-  if (/\b(?:1\s*:\s*1|11)\s+connect\b/i.test(senderName)) {
-    return {
-      label: "1:1 Connect",
-      className: "border-green-300 bg-green-100 text-green-800",
-    };
-  }
+const rucoSupplyCustomers = new Set([
+  "jayden chibuzo",
+  "kunal kapadia",
+  "coy hetherington",
+  "harvey bayes",
+]);
 
-  if (/\bruco\s+supply\b/i.test(senderName)) {
+function getOrderSourceTag(receiverName: string) {
+  if (rucoSupplyCustomers.has(receiverName.trim().toLowerCase())) {
     return {
       label: "Ruco Supply",
       className: "border-yellow-300 bg-yellow-100 text-yellow-900",
     };
   }
 
-  return null;
+  return {
+    label: "1:1 Connect",
+    className: "border-green-300 bg-green-100 text-green-800",
+  };
 }
 
 export function AdminDashboard() {
@@ -762,7 +765,7 @@ export function AdminDashboard() {
             </div>
           ) : null}
           {!loadingShipments && filteredShipments.map((shipment) => {
-            const sourceTag = getOrderSourceTag(shipment.sender_name);
+            const sourceTag = getOrderSourceTag(shipment.receiver_name);
 
             return (
               <article className="rounded-lg border border-slate-200 p-4" key={shipment.id}>

@@ -190,7 +190,7 @@ function generateEmailHtml(data: EmailData, config: StatusConfig): string {
               </table>
 
               ${
-                data.status === "Parcel Collected" && data.packageImageUrl
+                data.packageImageUrl
                   ? `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
                 <tr>
                   <td>
@@ -255,6 +255,40 @@ export type SendEmailResult = {
   emailId?: string;
   error?: string;
 };
+
+export async function sendRucoShipmentReceivedEmail(
+  data: EmailData,
+): Promise<SendEmailResult> {
+  const address = [
+    data.receiverAddress,
+    data.receiverCity,
+    data.receiverPostcode,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  return sendCustomEmail({
+    receiverEmail: data.receiverEmail,
+    receiverName: data.receiverName,
+    trackingNumber: data.trackingNumber,
+    status: data.status,
+    estimatedDeliveryDate: data.estimatedDeliveryDate,
+    packageImageUrl: data.packageImageUrl,
+    subject: `Please confirm your delivery details | Ref: ${data.trackingNumber}`,
+    message: `We have received your package from Ruco Supply and created your delivery with Royal Runs Delivery.
+
+Please check that the information below is correct:
+
+Recipient name: ${data.receiverName}
+Delivery address: ${address}
+Tracking reference: ${data.trackingNumber}
+Delivery service: Your parcel is being prepared for onward delivery.
+
+You only need to reply to this email if the recipient name or delivery address is incorrect. If everything is correct, no further action is required.
+
+We will contact you again when there is an important update about your shipment.`,
+  });
+}
 
 function escapeHtml(value: string): string {
   return value
@@ -325,7 +359,7 @@ export async function sendCustomEmail({
             </table>
 
             ${
-              status === "Parcel Collected" && packageImageUrl
+              packageImageUrl
                 ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:28px">
               <tr><td>
                 <div style="margin-bottom:12px;color:#07152f;font-size:16px;font-weight:800">Package image recorded at collection</div>

@@ -4,6 +4,8 @@ import { getSupabaseForUser } from "@/lib/supabase";
 import { generateTrackingNumber } from "@/lib/tracking";
 import { parseShipmentInput } from "@/lib/validation";
 import { fetchOSRMRoute, isMoving, isDelivered } from "@/lib/transit";
+import { sendRucoShipmentReceivedEmail } from "@/lib/email";
+import { isRucoSupplyShipment } from "@/lib/ruco";
 
 export async function GET() {
   const admin = await getAuthenticatedAdmin();
@@ -99,7 +101,47 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: eventError.message }, { status: 500 });
     }
 
-    return NextResponse.json({ shipment: data }, { status: 201 });
+    let confirmationEmail:
+      | { sent: boolean; error?: string }
+      | undefined;
+
+    if (
+      isRucoSupplyShipment(data) &&
+      data.receiver_email &&
+      body.defer_ruco_confirmation !== true
+    ) {
+      const subject = `Please confirm your delivery details | Ref: ${data.tracking_number}`;
+      const emailResult = await sendRucoShipmentReceivedEmail({
+        receiverName: data.receiver_name,
+        receiverEmail: data.receiver_email,
+        receiverAddress: data.receiver_address,
+        receiverCity: data.receiver_city,
+        receiverPostcode: data.receiver_postcode,
+        trackingNumber: data.tracking_number,
+        status: data.current_status,
+        estimatedDeliveryDate: data.estimated_delivery_date,
+        shipmentId: data.id,
+      });
+
+      await supabase.from("shipment_email_logs").insert({
+        shipment_id: data.id,
+        receiver_email: data.receiver_email,
+        status: "Ruco details confirmation",
+        subject,
+        sent_successfully: emailResult.success,
+        error_message: emailResult.error ?? null,
+      });
+
+      confirmationEmail = {
+        sent: emailResult.success,
+        ...(emailResult.error ? { error: emailResult.error } : {}),
+      };
+    }
+
+    return NextResponse.json(
+      { shipment: data, confirmationEmail },
+      { status: 201 },
+    );
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to save." },

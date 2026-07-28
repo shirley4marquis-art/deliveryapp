@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, RefreshCw, Save, Search, Trash2, PackagePlus, Mail, X } from "lucide-react";
+import { Plus, RefreshCw, Save, Search, Trash2, PackagePlus, Mail, X, Users } from "lucide-react";
 import {
   AddressAutocomplete,
   type VerifiedAddress,
@@ -10,6 +10,7 @@ import {
 import { AdminRouteMap } from "@/components/admin-route-map";
 import { parcelStatuses, type ParcelStatus, type Shipment } from "@/lib/types";
 import { parsePastedOrder } from "@/lib/order-import";
+import { isRucoSupplyCustomer, isRucoSupplyShipment } from "@/lib/ruco";
 
 const deliveryServices = [
   "Same-day delivery",
@@ -91,17 +92,6 @@ async function geocodeAddress(address: string) {
 
 type Toast = { message: string; type: "success" | "error" };
 
-const rucoSupplyCustomers = new Set([
-  "jayden chibuzo",
-  "kunal kapadia",
-  "coy hetherington",
-  "harvey bayes",
-]);
-
-function isRucoSupplyCustomer(receiverName: string) {
-  return rucoSupplyCustomers.has(receiverName.trim().toLowerCase());
-}
-
 function getOrderSourceTag(receiverName: string) {
   if (isRucoSupplyCustomer(receiverName)) {
     return {
@@ -134,7 +124,9 @@ export function AdminDashboard() {
   } | null>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [sendingRucoBatch, setSendingRucoBatch] = useState(false);
+  const [sendingRucoVat, setSendingRucoVat] = useState("");
   const [uploadingPackageImage, setUploadingPackageImage] = useState("");
+  const [newPackageImage, setNewPackageImage] = useState<File | null>(null);
   const [pastedOrder, setPastedOrder] = useState("");
   const [importingOrder, setImportingOrder] = useState(false);
 
@@ -307,6 +299,11 @@ Customs & Clearance Team`,
     );
   }, [query, shipments]);
 
+  const rucoShipments = useMemo(
+    () => shipments.filter((shipment) => isRucoSupplyShipment(shipment)),
+    [shipments],
+  );
+
   const loadShipments = useCallback(async () => {
     const response = await fetch("/api/admin/shipments");
     const data = await response.json();
@@ -381,6 +378,41 @@ Customs & Clearance Team`,
     showToast(
       `${result.sentCount || 0} of ${result.expected || 4} emails sent. ${failures || result.error || ""}`,
       "error",
+    );
+  }
+
+  async function sendRucoVatEmail(shipment: Shipment) {
+    if (!shipment.receiver_email) {
+      showToast("Add and verify the recipient email before sending.", "error");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Place ${shipment.receiver_name}'s shipment on hold and send the £110 import VAT email to ${shipment.receiver_email}?\n\nTracking: ${shipment.tracking_number}`,
+    );
+    if (!confirmed) return;
+
+    setSendingRucoVat(shipment.id);
+    const response = await fetch("/api/admin/send-customs-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        shipment_id: shipment.id,
+        charge_amount: "110.00",
+      }),
+    });
+    const result = await response.json();
+    setSendingRucoVat("");
+    await loadShipments();
+
+    if (!response.ok) {
+      showToast(result.error || "Unable to send the VAT email.", "error");
+      return;
+    }
+
+    showToast(
+      `VAT email sent to ${shipment.receiver_name}; shipment is now On Hold.`,
+      "success",
     );
   }
 
@@ -474,12 +506,23 @@ Customs & Clearance Team`,
       };
     }
 
+    const shouldUploadBeforeRucoEmail =
+      !editingId &&
+      Boolean(newPackageImage) &&
+      isRucoSupplyShipment({
+        sender_name: payload.sender_name,
+        receiver_name: payload.receiver_name,
+      });
+
     const response = await fetch(
       editingId ? `/api/admin/shipments/${editingId}` : "/api/admin/shipments",
       {
         method: editingId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          ...payload,
+          defer_ruco_confirmation: shouldUploadBeforeRucoEmail,
+        }),
       },
     );
     const data = await response.json();
@@ -490,8 +533,47 @@ Customs & Clearance Team`,
       return;
     }
 
-    setMessage(editingId ? "Shipment updated." : "Shipment created.");
+    let confirmationEmail = data.confirmationEmail as
+      | { sent: boolean; error?: string }
+      | undefined;
+    let uploadFailed = false;
+
+    if (shouldUploadBeforeRucoEmail && data.shipment?.id && newPackageImage) {
+      const imageBody = new FormData();
+      imageBody.set("image", newPackageImage);
+      const uploadResponse = await fetch(
+        `/api/admin/shipments/${data.shipment.id}/package-image`,
+        { method: "POST", body: imageBody },
+      );
+      const uploadResult = await uploadResponse.json();
+
+      if (!uploadResponse.ok) {
+        uploadFailed = true;
+        setError(
+          `Shipment was created, but the package photo upload failed and the confirmation email was not sent: ${uploadResult.error || "Unknown upload error."}`,
+        );
+      } else {
+        confirmationEmail = uploadResult.confirmationEmail;
+      }
+    }
+
+    if (!editingId && confirmationEmail) {
+      if (confirmationEmail.sent) {
+        setMessage(
+          shouldUploadBeforeRucoEmail
+            ? "Ruco shipment created; its package photo was included in the confirmation email."
+            : "Ruco shipment created and the details-confirmation email was sent.",
+        );
+      } else {
+        setError(
+          `Ruco shipment was created, but the confirmation email failed: ${confirmationEmail.error || "Unknown email error."}`,
+        );
+      }
+    } else if (!uploadFailed) {
+      setMessage(editingId ? "Shipment updated." : "Shipment created.");
+    }
     setForm(emptyShipment());
+    setNewPackageImage(null);
     setEditingId("");
     await loadShipments();
 
@@ -619,6 +701,13 @@ Customs & Clearance Team`,
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
+          <a
+            className="inline-flex items-center gap-2 rounded-lg border border-yellow-400 bg-yellow-50 px-4 py-2 text-sm font-bold text-yellow-950"
+            href="#ruco-clients"
+          >
+            <Users size={16} />
+            Ruco clients
+          </a>
           <button
             className="inline-flex items-center gap-2 rounded-lg bg-[#0047bb] px-4 py-2 text-sm font-bold text-slate-100 hover:bg-[#0039a0] hover:text-white"
             onClick={() => {
@@ -689,6 +778,122 @@ Customs & Clearance Team`,
           </section>
         </div>
       )}
+
+      <section
+        className="rounded-xl border border-yellow-300 bg-gradient-to-br from-yellow-50 to-white p-5 shadow-sm"
+        id="ruco-clients"
+      >
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-yellow-950">
+              <Users size={22} />
+              <h3 className="text-xl font-black">Ruco Supply follow-up panel</h3>
+            </div>
+            <p className="mt-2 max-w-3xl text-sm text-[#50627f]">
+              Ruco shipments appear here automatically. Creating a shipment sends
+              the recipient a confirmation email containing their name, address,
+              and tracking reference. Use the VAT action only when a parcel must
+              be placed on hold.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <span className="rounded-full bg-yellow-200 px-3 py-1 text-xs font-black text-yellow-950">
+              {rucoShipments.length} shipment{rucoShipments.length === 1 ? "" : "s"}
+            </span>
+            <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-black text-red-800">
+              {rucoShipments.filter((shipment) => shipment.current_status === "On Hold").length} on hold
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-4 xl:grid-cols-2">
+          {rucoShipments.map((shipment) => (
+            <article
+              className="rounded-xl border border-yellow-200 bg-white p-5 shadow-sm"
+              key={shipment.id}
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="font-mono text-sm font-black text-[#0047bb]">
+                    {shipment.tracking_number}
+                  </p>
+                  <h4 className="mt-1 text-lg font-black">{shipment.receiver_name}</h4>
+                  <p className="text-sm text-[#50627f]">
+                    {shipment.receiver_email || "No recipient email"}
+                  </p>
+                </div>
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-black ${
+                    shipment.current_status === "On Hold"
+                      ? "bg-red-100 text-red-800"
+                      : "bg-green-100 text-green-800"
+                  }`}
+                >
+                  {shipment.current_status}
+                </span>
+              </div>
+
+              <dl className="mt-4 grid gap-3 rounded-lg bg-[#f7faff] p-4 text-sm sm:grid-cols-2">
+                <div>
+                  <dt className="font-bold text-[#50627f]">Recipient address</dt>
+                  <dd className="mt-1 font-semibold text-[#07152f]">
+                    {[shipment.receiver_address, shipment.receiver_city, shipment.receiver_postcode]
+                      .filter(Boolean)
+                      .join(", ")}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-bold text-[#50627f]">Shipment</dt>
+                  <dd className="mt-1 font-semibold text-[#07152f]">
+                    {shipment.package_type} · {shipment.weight}
+                  </dd>
+                  <dd className="mt-1 text-[#50627f]">
+                    ETA {shipment.estimated_delivery_date}
+                  </dd>
+                </div>
+              </dl>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold"
+                  onClick={() => editShipment(shipment)}
+                  type="button"
+                >
+                  Review details
+                </button>
+                <button
+                  className="inline-flex items-center gap-2 rounded-lg border border-[#0047bb] px-3 py-2 text-sm font-bold text-[#0047bb]"
+                  onClick={() => openEmailComposer(shipment)}
+                  type="button"
+                >
+                  <Mail size={15} /> Follow-up email
+                </button>
+                <button
+                  className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-3 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={
+                    sendingRucoVat === shipment.id ||
+                    !shipment.receiver_email
+                  }
+                  onClick={() => void sendRucoVatEmail(shipment)}
+                  type="button"
+                >
+                  <Mail size={15} />
+                  {sendingRucoVat === shipment.id
+                    ? "Sending..."
+                    : shipment.current_status === "On Hold"
+                      ? "Resend £110 VAT email"
+                      : "Send £110 VAT & place on hold"}
+                </button>
+              </div>
+            </article>
+          ))}
+          {!loadingShipments && rucoShipments.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-yellow-300 p-5 text-sm text-[#50627f] xl:col-span-2">
+              No Ruco Supply shipments have been created yet.
+            </p>
+          ) : null}
+        </div>
+      </section>
 
       <form
         className="rounded-lg border border-[#c8d9f5] bg-white p-5 shadow-sm"
@@ -776,6 +981,30 @@ Customs & Clearance Team`,
             <StatusSelect value={form.current_status} onChange={(value) => setForm({ ...form, current_status: value })} />
             <Field label="Notes" value={form.notes} onChange={(value) => setForm({ ...form, notes: value })} required={false} />
           </div>
+          {!editingId ? (
+            <label className="mt-5 block rounded-lg border border-dashed border-[#9bb8ea] bg-[#f7faff] p-4">
+              <span className="text-sm font-black text-[#10213f]">
+                Package photo for the first customer email
+              </span>
+              <span className="mt-1 block text-xs text-[#50627f]">
+                Optional. For a Ruco shipment, this JPEG, PNG, or WebP photo is
+                uploaded before the automatic confirmation email is sent.
+              </span>
+              <input
+                accept="image/jpeg,image/png,image/webp"
+                className="mt-3 block w-full text-sm"
+                onChange={(event) =>
+                  setNewPackageImage(event.target.files?.[0] || null)
+                }
+                type="file"
+              />
+              {newPackageImage ? (
+                <span className="mt-2 block text-xs font-bold text-green-700">
+                  Selected: {newPackageImage.name}
+                </span>
+              ) : null}
+            </label>
+          ) : null}
           <div className="mt-6 rounded-lg border border-[#c8d9f5] bg-[#f7faff] p-4">
             <h4 className="text-lg font-black text-[#07152f]">Delivery route map</h4>
             <p className="mt-1 text-sm font-medium text-[#10213f]">

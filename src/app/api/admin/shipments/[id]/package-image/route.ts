@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedAdmin } from "@/lib/admin-auth";
 import { getSupabaseForUser } from "@/lib/supabase";
+import { sendRucoShipmentReceivedEmail } from "@/lib/email";
+import { isRucoSupplyShipment } from "@/lib/ruco";
 
 const allowedTypes = new Map([
   ["image/jpeg", "jpg"],
@@ -46,16 +48,22 @@ export async function POST(
   const supabase = getSupabaseForUser(admin.accessToken);
   const { data: shipment, error: shipmentError } = await supabase
     .from("shipments")
-    .select("id,current_status")
+    .select("*")
     .eq("id", id)
     .single();
 
   if (shipmentError || !shipment) {
     return NextResponse.json({ error: "Shipment not found." }, { status: 404 });
   }
-  if (shipment.current_status !== "Parcel Collected") {
+  const isRucoAtCreation =
+    shipment.current_status === "Shipment Created" &&
+    isRucoSupplyShipment(shipment);
+  if (shipment.current_status !== "Parcel Collected" && !isRucoAtCreation) {
     return NextResponse.json(
-      { error: "A package image can be added when the status is Parcel Collected." },
+      {
+        error:
+          "A package image can be added to a new Ruco shipment or when a parcel is collected.",
+      },
       { status: 409 },
     );
   }
@@ -85,5 +93,42 @@ export async function POST(
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ imageUrl: publicUrl.publicUrl });
+  let confirmationEmail:
+    | { sent: boolean; error?: string }
+    | undefined;
+
+  if (isRucoAtCreation && shipment.receiver_email) {
+    const subject = `Please confirm your delivery details | Ref: ${shipment.tracking_number}`;
+    const emailResult = await sendRucoShipmentReceivedEmail({
+      receiverName: shipment.receiver_name,
+      receiverEmail: shipment.receiver_email,
+      receiverAddress: shipment.receiver_address,
+      receiverCity: shipment.receiver_city,
+      receiverPostcode: shipment.receiver_postcode,
+      trackingNumber: shipment.tracking_number,
+      status: shipment.current_status,
+      estimatedDeliveryDate: shipment.estimated_delivery_date,
+      shipmentId: shipment.id,
+      packageImageUrl: publicUrl.publicUrl,
+    });
+
+    await supabase.from("shipment_email_logs").insert({
+      shipment_id: shipment.id,
+      receiver_email: shipment.receiver_email,
+      status: "Ruco details confirmation",
+      subject,
+      sent_successfully: emailResult.success,
+      error_message: emailResult.error ?? null,
+    });
+
+    confirmationEmail = {
+      sent: emailResult.success,
+      ...(emailResult.error ? { error: emailResult.error } : {}),
+    };
+  }
+
+  return NextResponse.json({
+    imageUrl: publicUrl.publicUrl,
+    confirmationEmail,
+  });
 }

@@ -2,13 +2,7 @@ import { NextResponse } from "next/server";
 import { getAuthenticatedAdmin } from "@/lib/admin-auth";
 import { sendCustomsEmail } from "@/lib/email";
 import { getSupabaseForUser } from "@/lib/supabase";
-
-const RUCO_CUSTOMERS = [
-  "Jayden Chibuzo",
-  "Kunal Kapadia",
-  "Coy Hetherington",
-  "Harvey Bayes",
-] as const;
+import { RUCO_SUPPLY_CUSTOMERS } from "@/lib/ruco";
 
 type RucoShipment = {
   id: string;
@@ -41,7 +35,7 @@ async function getRucoShipments(accessToken: string) {
   for (const shipment of (data || []) as RucoShipment[]) {
     const key = normaliseName(shipment.receiver_name);
     if (
-      RUCO_CUSTOMERS.some((name) => normaliseName(name) === key) &&
+      RUCO_SUPPLY_CUSTOMERS.some((name) => normaliseName(name) === key) &&
       !latestByCustomer.has(key)
     ) {
       latestByCustomer.set(key, shipment);
@@ -50,7 +44,7 @@ async function getRucoShipments(accessToken: string) {
 
   return {
     error: null,
-    shipments: RUCO_CUSTOMERS.map((name) =>
+    shipments: RUCO_SUPPLY_CUSTOMERS.map((name) =>
       latestByCustomer.get(normaliseName(name)),
     ).filter((shipment): shipment is RucoShipment => Boolean(shipment)),
   };
@@ -68,7 +62,7 @@ export async function GET() {
   }
 
   return NextResponse.json({
-    expected: RUCO_CUSTOMERS.length,
+    expected: RUCO_SUPPLY_CUSTOMERS.length,
     recipients: result.shipments.map((shipment) => ({
       id: shipment.id,
       name: shipment.receiver_name,
@@ -98,7 +92,7 @@ export async function POST(request: Request) {
   }
 
   if (
-    lookup.shipments.length !== RUCO_CUSTOMERS.length ||
+    lookup.shipments.length !== RUCO_SUPPLY_CUSTOMERS.length ||
     lookup.shipments.some((shipment) => !shipment.receiver_email)
   ) {
     return NextResponse.json(
@@ -172,7 +166,7 @@ export async function POST(request: Request) {
 
   const sentCount = results.filter((result) => result.sent).length;
   return NextResponse.json(
-    { sentCount, expected: RUCO_CUSTOMERS.length, results },
-    { status: sentCount === RUCO_CUSTOMERS.length ? 200 : 207 },
+    { sentCount, expected: RUCO_SUPPLY_CUSTOMERS.length, results },
+    { status: sentCount === RUCO_SUPPLY_CUSTOMERS.length ? 200 : 207 },
   );
 }

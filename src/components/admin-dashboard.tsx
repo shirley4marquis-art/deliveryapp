@@ -91,6 +91,24 @@ async function geocodeAddress(address: string) {
 
 type Toast = { message: string; type: "success" | "error" };
 
+function getOrderSourceTag(senderName: string) {
+  if (/\b(?:1\s*:\s*1|11)\s+connect\b/i.test(senderName)) {
+    return {
+      label: "1:1 Connect",
+      className: "border-green-300 bg-green-100 text-green-800",
+    };
+  }
+
+  if (/\bruco\s+supply\b/i.test(senderName)) {
+    return {
+      label: "Ruco Supply",
+      className: "border-yellow-300 bg-yellow-100 text-yellow-900",
+    };
+  }
+
+  return null;
+}
+
 export function AdminDashboard() {
   const router = useRouter();
   const [shipments, setShipments] = useState<Shipment[]>([]);
@@ -743,41 +761,52 @@ export function AdminDashboard() {
               <p className="text-sm font-semibold text-[#1f3556]">Loading shipments…</p>
             </div>
           ) : null}
-          {!loadingShipments && filteredShipments.map((shipment) => (
-            <article className="rounded-lg border border-slate-200 p-4" key={shipment.id}>
-              <div className="grid gap-4 lg:grid-cols-[1fr_1fr_auto] lg:items-center">
-                <div>
-                  <p className="font-mono text-sm font-bold text-[#0047bb]">{shipment.tracking_number}</p>
+          {!loadingShipments && filteredShipments.map((shipment) => {
+            const sourceTag = getOrderSourceTag(shipment.sender_name);
+
+            return (
+              <article className="rounded-lg border border-slate-200 p-4" key={shipment.id}>
+                <div className="grid gap-4 lg:grid-cols-[1fr_1fr_auto] lg:items-center">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-mono text-sm font-bold text-[#0047bb]">{shipment.tracking_number}</p>
+                      {sourceTag ? (
+                        <span className={`rounded-full border px-2.5 py-1 text-xs font-black ${sourceTag.className}`}>
+                          {sourceTag.label}
+                        </span>
+                      ) : null}
+                    </div>
                   <h4 className="mt-1 font-black">{shipment.receiver_name}</h4>
                   <p className="text-sm text-[#1f3556]">
                     {shipment.sender_city} to {shipment.receiver_city}, {shipment.receiver_postcode}
                   </p>
+                  </div>
+                  <div>
+                    <p className="font-bold">{shipment.current_status}</p>
+                    <p className="text-sm text-[#1f3556]">
+                      ETA {shipment.estimated_delivery_date} | {shipment.delivery_service}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold" onClick={() => editShipment(shipment)} type="button">
+                      Edit
+                    </button>
+                    <button
+                      className="inline-flex items-center gap-2 rounded-lg border border-[#0047bb] px-3 py-2 text-sm font-bold text-[#0047bb]"
+                      onClick={() => openEmailComposer(shipment)}
+                      title="Draft an email to this receiver"
+                      type="button"
+                    >
+                      <Mail size={15} /> Draft email
+                    </button>
+                    <button className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm font-bold text-red-700" onClick={() => deleteShipment(shipment.id)} type="button">
+                      <Trash2 size={15} /> Delete
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-bold">{shipment.current_status}</p>
-                  <p className="text-sm text-[#1f3556]">
-                    ETA {shipment.estimated_delivery_date} | {shipment.delivery_service}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold" onClick={() => editShipment(shipment)} type="button">
-                    Edit
-                  </button>
-                  <button
-                    className="inline-flex items-center gap-2 rounded-lg border border-[#0047bb] px-3 py-2 text-sm font-bold text-[#0047bb]"
-                    onClick={() => openEmailComposer(shipment)}
-                    title="Draft an email to this receiver"
-                    type="button"
-                  >
-                    <Mail size={15} /> Draft email
-                  </button>
-                  <button className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm font-bold text-red-700" onClick={() => deleteShipment(shipment.id)} type="button">
-                    <Trash2 size={15} /> Delete
-                  </button>
-                </div>
-              </div>
-            </article>
-          ))}
+              </article>
+            );
+          })}
           {!loadingShipments && !filteredShipments.length ? (
             <p className="rounded-lg bg-[#f7faff] p-4 text-sm text-[#1f3556]">
               No shipments found.

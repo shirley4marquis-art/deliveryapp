@@ -98,8 +98,12 @@ const rucoSupplyCustomers = new Set([
   "harvey bayes",
 ]);
 
+function isRucoSupplyCustomer(receiverName: string) {
+  return rucoSupplyCustomers.has(receiverName.trim().toLowerCase());
+}
+
 function getOrderSourceTag(receiverName: string) {
-  if (rucoSupplyCustomers.has(receiverName.trim().toLowerCase())) {
+  if (isRucoSupplyCustomer(receiverName)) {
     return {
       label: "Ruco Supply",
       className: "border-yellow-300 bg-yellow-100 text-yellow-900",
@@ -142,6 +146,30 @@ export function AdminDashboard() {
       shipment,
       subject: `TBC shipment update — ${shipment.tracking_number}`,
       message: `We are writing with an update about your shipment.\n\nCurrent status: ${shipment.current_status}\nEstimated delivery: ${shipment.estimated_delivery_date}\n\nYou can use the button below to view the latest tracking information.`,
+    });
+  }
+
+  function openVatDraft(shipment: Shipment) {
+    setEmailComposer({
+      shipment,
+      subject: `Action Required — Import VAT Settlement | Ref: ${shipment.tracking_number}`,
+      message: `Dear ${shipment.receiver_name},
+
+We are contacting you regarding your Royal Runs Delivery shipment under tracking reference ${shipment.tracking_number}.
+
+Your shipment is currently classified as On Hold while the mandatory import VAT assessment is completed. An outstanding VAT settlement of £110.00 is attached to this consignment and must be completed before the parcel can be released for onward delivery.
+
+Under the applicable UK import and customs clearance requirements, assessed VAT must be settled before goods can progress beyond the clearance stage. This requirement is not optional, and the delivery process cannot proceed while the balance remains outstanding.
+
+Once the £110.00 settlement has been received and confirmed, the hold will be removed and your shipment will proceed to the next available delivery stage. You will then receive an updated tracking notification.
+
+Please contact the sender, Ruco Supply, to arrange settlement, quoting tracking reference ${shipment.tracking_number} in all correspondence.
+
+If you have already completed this payment, please provide confirmation so the shipment can be reviewed without unnecessary delay.
+
+Yours sincerely,
+Royal Runs Delivery
+Customs & Clearance Team`,
     });
   }
 
@@ -802,6 +830,16 @@ export function AdminDashboard() {
                     >
                       <Mail size={15} /> Draft email
                     </button>
+                    {isRucoSupplyCustomer(shipment.receiver_name) ? (
+                      <button
+                        className="inline-flex items-center gap-2 rounded-lg border border-yellow-400 bg-yellow-50 px-3 py-2 text-sm font-bold text-yellow-900"
+                        onClick={() => openVatDraft(shipment)}
+                        title="Prepare a £110 VAT-on-hold email without sending it"
+                        type="button"
+                      >
+                        <Mail size={15} /> Prepare £110 VAT draft
+                      </button>
+                    ) : null}
                     <button className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm font-bold text-red-700" onClick={() => deleteShipment(shipment.id)} type="button">
                       <Trash2 size={15} /> Delete
                     </button>

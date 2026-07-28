@@ -163,9 +163,9 @@ Under the applicable UK import and customs clearance requirements, assessed VAT 
 
 Once the £110.00 settlement has been received and confirmed, the hold will be removed and your shipment will proceed to the next available delivery stage. You will then receive an updated tracking notification.
 
-Please contact the sender, Ruco Supply, to arrange settlement, quoting tracking reference ${shipment.tracking_number} in all correspondence.
+Please contact your sender directly to arrange settlement of the outstanding £110.00 VAT charge. This payment should have been completed through the original dispatch unit before the consignment entered onward transit. Please quote tracking reference ${shipment.tracking_number} in all correspondence.
 
-If you have already completed this payment, please provide confirmation so the shipment can be reviewed without unnecessary delay.
+As soon as confirmation of settlement has been received and verified, the customs hold will be cleared and your consignment will be assigned for dispatch without further clearance delay. If you have already completed the payment, please provide confirmation so the shipment can be reviewed promptly.
 
 Yours sincerely,
 Royal Runs Delivery

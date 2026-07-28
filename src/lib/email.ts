@@ -419,7 +419,7 @@ function generateCustomsHtml(data: CustomsEmailData): string {
           <!-- Header -->
           <tr>
             <td style="background:#07152f;padding:28px 36px;">
-              <p style="color:#ffffff;font-size:22px;font-weight:900;margin:0;">TBC</p>
+              <p style="color:#ffffff;font-size:22px;font-weight:900;margin:0;">Royal Runs Delivery</p>
               <p style="color:rgba(255,255,255,0.6);font-size:11px;text-transform:uppercase;letter-spacing:0.15em;margin:4px 0 0;">Customs &amp; Clearance</p>
             </td>
           </tr>
@@ -480,8 +480,10 @@ function generateCustomsHtml(data: CustomsEmailData): string {
                       returned, or disposed of in accordance with HMRC customs policy.
                     </p>
                     <p style="color:#78350f;font-size:14px;line-height:1.7;margin:0;">
-                      To arrange payment, please contact the sender <strong>${data.senderName}</strong> directly,
-                      quoting your tracking reference <strong>${data.trackingNumber}</strong>.
+                      Please contact your sender <strong>${data.senderName}</strong> directly to arrange settlement
+                      of the outstanding import VAT charge. This payment should have been completed through the
+                      original dispatch unit before the consignment entered onward transit. Please quote tracking
+                      reference <strong>${data.trackingNumber}</strong> in all correspondence.
                     </p>
                   </td>
                 </tr>
@@ -500,15 +502,15 @@ function generateCustomsHtml(data: CustomsEmailData): string {
               </table>
 
               <p style="color:#10213f;font-size:14px;line-height:1.7;margin:0 0 8px;">
-                Once your payment has been received and confirmed, your parcel will be released
-                and delivered within <strong>1–2 working days</strong>.
+                As soon as confirmation of settlement has been received and verified, the customs hold will be
+                cleared and your consignment will be assigned for dispatch without further clearance delay.
               </p>
               <p style="color:#50627f;font-size:14px;margin:0;">We apologise for any inconvenience this may cause.</p>
 
               <br/>
               <p style="color:#07152f;font-size:14px;margin:0;">Yours sincerely,</p>
-              <p style="color:#07152f;font-size:14px;font-weight:700;margin:4px 0 2px;">TBC Customs &amp; Clearance Team</p>
-              <p style="color:#50627f;font-size:13px;margin:0;">TBC Courier Service</p>
+              <p style="color:#07152f;font-size:14px;font-weight:700;margin:4px 0 2px;">Royal Runs Delivery Customs &amp; Clearance Team</p>
+              <p style="color:#50627f;font-size:13px;margin:0;">Royal Runs Delivery</p>
             </td>
           </tr>
 
@@ -517,7 +519,7 @@ function generateCustomsHtml(data: CustomsEmailData): string {
             <td style="padding:20px 36px;background:#f8faff;border-top:1px solid #e2e8f0;">
               <p style="color:#9bb8ea;font-size:11px;margin:0;text-align:center;">
                 This notice was sent regarding parcel <strong>${data.trackingNumber}</strong>.
-                Reference your tracking number in all correspondence with TBC.
+                Reference your tracking number in all correspondence with Royal Runs Delivery.
               </p>
             </td>
           </tr>

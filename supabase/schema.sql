@@ -3,6 +3,8 @@ create extension if not exists pgcrypto;
 create table if not exists public.shipments (
   id uuid primary key default gen_random_uuid(),
   tracking_number text unique not null check (tracking_number ~ '^RR[0-9]{9}GB$'),
+  external_order_id text unique,
+  order_source text,
   sender_name text,
   sender_address text,
   sender_city text,
@@ -38,6 +40,8 @@ create table if not exists public.shipments (
 
 alter table public.shipments
   add column if not exists sender_place_id text,
+  add column if not exists external_order_id text,
+  add column if not exists order_source text,
   add column if not exists receiver_place_id text,
   add column if not exists receiver_email text,
   add column if not exists package_image_url text,
@@ -92,6 +96,10 @@ create index if not exists tracking_events_shipment_id_idx
 
 create index if not exists tracking_events_event_time_idx
   on public.tracking_events (event_time desc);
+
+create unique index if not exists shipments_external_order_id_idx
+  on public.shipments (external_order_id)
+  where external_order_id is not null;
 
 create or replace function public.set_updated_at()
 returns trigger as $$

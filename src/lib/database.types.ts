@@ -7,6 +7,8 @@ export type Database = {
         Row: {
           id: string;
           tracking_number: string;
+          external_order_id: string | null;
+          order_source: string | null;
           sender_name: string;
           sender_address: string;
           sender_city: string;
@@ -42,6 +44,8 @@ export type Database = {
         Insert: {
           id?: string;
           tracking_number: string;
+          external_order_id?: string | null;
+          order_source?: string | null;
           sender_name: string;
           sender_address: string;
           sender_city: string;

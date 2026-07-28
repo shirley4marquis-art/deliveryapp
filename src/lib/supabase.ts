@@ -3,6 +3,7 @@ import type { Database } from "./database.types";
 
 let adminClient: SupabaseClient<Database> | null = null;
 let publicClient: SupabaseClient<Database> | null = null;
+let serviceClient: SupabaseClient<Database> | null = null;
 
 function requireEnv(name: string) {
   const value = process.env[name];
@@ -64,4 +65,21 @@ export function getSupabaseForUser(accessToken: string) {
       },
     },
   );
+}
+
+export function getSupabaseServiceRole() {
+  if (!serviceClient) {
+    serviceClient = createClient<Database>(
+      requireEnv("VITE_SUPABASE_URL"),
+      requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
+      {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+        },
+      },
+    );
+  }
+
+  return serviceClient;
 }

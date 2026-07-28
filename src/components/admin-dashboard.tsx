@@ -134,6 +134,7 @@ export function AdminDashboard() {
   } | null>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [sendingRucoBatch, setSendingRucoBatch] = useState(false);
+  const [uploadingPackageImage, setUploadingPackageImage] = useState("");
   const [pastedOrder, setPastedOrder] = useState("");
   const [importingOrder, setImportingOrder] = useState(false);
 
@@ -255,6 +256,28 @@ Customs & Clearance Team`,
       showToast(`Email failed: ${data.error || "Unknown error"}`, "error");
     }
   }
+
+  async function uploadPackageImage(shipment: Shipment, image?: File) {
+    if (!image) return;
+    setUploadingPackageImage(shipment.id);
+    const body = new FormData();
+    body.set("image", image);
+    const response = await fetch(
+      `/api/admin/shipments/${shipment.id}/package-image`,
+      { method: "POST", body },
+    );
+    const result = await response.json();
+    setUploadingPackageImage("");
+
+    if (!response.ok) {
+      showToast(result.error || "Unable to upload the package image.", "error");
+      return;
+    }
+
+    await loadShipments();
+    showToast("Package image uploaded and added to receiver tracking.", "success");
+  }
+
   const [timeline, setTimeline] = useState({
     shipmentId: "",
     event_date: "",
@@ -887,6 +910,16 @@ Customs & Clearance Team`,
                     <p className="text-sm text-[#1f3556]">
                       ETA {shipment.estimated_delivery_date} | {shipment.delivery_service}
                     </p>
+                    {shipment.package_image_url ? (
+                      <a
+                        className="mt-2 inline-block text-sm font-bold text-[#0047bb] underline"
+                        href={shipment.package_image_url}
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        View package image
+                      </a>
+                    ) : null}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <button className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold" onClick={() => editShipment(shipment)} type="button">
@@ -909,6 +942,29 @@ Customs & Clearance Team`,
                       >
                         <Mail size={15} /> Prepare £110 VAT draft
                       </button>
+                    ) : null}
+                    {shipment.current_status === "Parcel Collected" ? (
+                      <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-green-400 bg-green-50 px-3 py-2 text-sm font-bold text-green-900">
+                        <PackagePlus size={15} />
+                        {uploadingPackageImage === shipment.id
+                          ? "Uploading image..."
+                          : shipment.package_image_url
+                            ? "Replace package image"
+                            : "Add package image"}
+                        <input
+                          accept="image/jpeg,image/png,image/webp"
+                          className="sr-only"
+                          disabled={uploadingPackageImage === shipment.id}
+                          onChange={(event) => {
+                            void uploadPackageImage(
+                              shipment,
+                              event.target.files?.[0],
+                            );
+                            event.target.value = "";
+                          }}
+                          type="file"
+                        />
+                      </label>
                     ) : null}
                     <button className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm font-bold text-red-700" onClick={() => deleteShipment(shipment.id)} type="button">
                       <Trash2 size={15} /> Delete

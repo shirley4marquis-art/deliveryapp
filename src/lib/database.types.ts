@@ -18,6 +18,7 @@ export type Database = {
           receiver_postcode: string;
           receiver_place_id: string | null;
           package_type: string;
+          package_image_url: string | null;
           weight: string;
           delivery_service: string;
           current_status: ParcelStatus;
@@ -52,6 +53,7 @@ export type Database = {
           receiver_postcode: string;
           receiver_place_id?: string | null;
           package_type: string;
+          package_image_url?: string | null;
           weight: string;
           delivery_service: string;
           current_status: ParcelStatus;

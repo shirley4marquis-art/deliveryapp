@@ -48,6 +48,7 @@ export async function POST(request: Request) {
     trackingNumber: String(shipment.tracking_number || ""),
     status: String(shipment.current_status || ""),
     estimatedDeliveryDate: String(shipment.estimated_delivery_date || ""),
+    packageImageUrl: shipment.package_image_url,
     shipmentId,
   };
 
@@ -67,11 +68,12 @@ export async function POST(request: Request) {
         message: customMessage,
         status: emailData.status,
         estimatedDeliveryDate: emailData.estimatedDeliveryDate,
+        packageImageUrl: emailData.packageImageUrl,
       })
     : await sendStatusEmail(emailData);
 
   // Log the attempt (best-effort — don't fail the response if this errors)
-  const subject = customSubject || `TBC Update: ${emailData.status} — Tracking ${emailData.trackingNumber}`;
+  const subject = customSubject || `Royal Runs Delivery Update: ${emailData.status} — Tracking ${emailData.trackingNumber}`;
   try {
     await supabase.from("shipment_email_logs").insert({
       shipment_id: shipmentId,

@@ -16,6 +16,7 @@ export type EmailData = {
   status: string;
   estimatedDeliveryDate: string;
   shipmentId: string;
+  packageImageUrl?: string | null;
 };
 
 type StatusConfig = {
@@ -37,14 +38,14 @@ const STATUS_CONFIGS: Record<string, StatusConfig> = {
     emoji: "🚐",
     headline: "Parcel Collected",
     bodyText:
-      "Your parcel has been collected by a TBC courier and is now in our hands. We'll keep you updated as it travels to you.",
+      "Your parcel has been collected by Royal Runs Delivery and is now in our care. We'll keep you updated as it travels to you.",
     headerColor: "#0047bb",
   },
   "At Local Depot": {
     emoji: "🏢",
     headline: "At Local Depot",
     bodyText:
-      "Your parcel has arrived at a TBC local depot and is being processed ready for onward transit. Updates will follow shortly.",
+      "Your parcel has arrived at a Royal Runs Delivery local depot and is being processed for onward transit. Updates will follow shortly.",
     headerColor: "#0047bb",
   },
   "In Transit": {
@@ -79,21 +80,21 @@ const STATUS_CONFIGS: Record<string, StatusConfig> = {
     emoji: "🔔",
     headline: "Delivery Attempted",
     bodyText:
-      "We attempted to deliver your parcel but were unable to complete the delivery. Please contact TBC support or check your tracking page for next steps and re-delivery options.",
+      "We attempted to deliver your parcel but were unable to complete the delivery. Please contact Royal Runs Delivery support or check your tracking page for next steps and re-delivery options.",
     headerColor: "#d97706",
   },
   Delivered: {
     emoji: "✅",
     headline: "Delivered",
     bodyText:
-      "Your parcel has been successfully delivered. We hope everything is in perfect condition. Thank you for choosing TBC — we look forward to serving you again.",
+      "Your parcel has been successfully delivered. We hope everything is in perfect condition. Thank you for choosing Royal Runs Delivery — we look forward to serving you again.",
     headerColor: "#059669",
   },
   "On Hold": {
     emoji: "⏸️",
     headline: "Shipment On Hold",
     bodyText:
-      `Your parcel is currently on hold. Please contact TBC support at ${SUPPORT_EMAIL} or call 07346 535643 for more information and to resolve the hold.`,
+      `Your parcel is currently on hold. Please contact Royal Runs Delivery support at ${SUPPORT_EMAIL} or call 07346 535643 for more information and to resolve the hold.`,
     headerColor: "#dc2626",
   },
 };
@@ -122,7 +123,7 @@ function generateEmailHtml(data: EmailData, config: StatusConfig): string {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TBC — ${config.headline}</title>
+  <title>Royal Runs Delivery — ${config.headline}</title>
 </head>
 <body style="margin:0;padding:0;background:#f3f7ff;font-family:Arial,Helvetica,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f7ff;padding:32px 16px;">
@@ -137,7 +138,7 @@ function generateEmailHtml(data: EmailData, config: StatusConfig): string {
                 <tr>
                   <td>
                     <div style="display:inline-block;background:rgba(255,255,255,0.15);border-radius:8px;padding:8px 12px;margin-bottom:10px;">
-                      <span style="color:#ffffff;font-size:22px;font-weight:900;letter-spacing:-0.5px;">TBC</span>
+                      <span style="color:#ffffff;font-size:22px;font-weight:900;letter-spacing:-0.5px;">Royal Runs Delivery</span>
                     </div>
                     <p style="color:rgba(255,255,255,0.75);margin:0;font-size:11px;text-transform:uppercase;letter-spacing:0.15em;">Royal Mail Branch Delivery Service</p>
                   </td>
@@ -188,6 +189,19 @@ function generateEmailHtml(data: EmailData, config: StatusConfig): string {
                 </tr>
               </table>
 
+              ${
+                data.status === "Parcel Collected" && data.packageImageUrl
+                  ? `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+                <tr>
+                  <td>
+                    <p style="color:#07152f;font-size:16px;font-weight:800;margin:0 0 12px;">Package image recorded at collection</p>
+                    <img src="${escapeHtml(data.packageImageUrl)}" alt="Collected package for ${escapeHtml(data.trackingNumber)}" style="display:block;width:100%;max-height:480px;object-fit:contain;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;" />
+                  </td>
+                </tr>
+              </table>`
+                  : ""
+              }
+
               <!-- CTA Button -->
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
@@ -217,11 +231,11 @@ function generateEmailHtml(data: EmailData, config: StatusConfig): string {
           <!-- Footer -->
           <tr>
             <td style="padding:24px 36px;background:#f8faff;">
-              <p style="color:#07152f;font-size:14px;font-weight:700;margin:0 0 4px;">TBC Courier Service</p>
+              <p style="color:#07152f;font-size:14px;font-weight:700;margin:0 0 4px;">Royal Runs Delivery</p>
               <p style="color:#50627f;font-size:12px;margin:0 0 2px;">📧 ${SUPPORT_EMAIL}</p>
               <p style="color:#50627f;font-size:12px;margin:0 0 12px;">📞 07346 535643</p>
               <p style="color:#9bb8ea;font-size:11px;margin:0;">
-                This email was sent because a TBC shipment with tracking number
+                This email was sent because a Royal Runs Delivery shipment with tracking number
                 <strong>${data.trackingNumber}</strong> has been updated.
                 If you believe this was sent in error, please contact us.
               </p>
@@ -259,6 +273,7 @@ export async function sendCustomEmail({
   trackingNumber,
   status,
   estimatedDeliveryDate,
+  packageImageUrl,
 }: {
   receiverEmail: string;
   receiverName: string;
@@ -267,6 +282,7 @@ export async function sendCustomEmail({
   trackingNumber: string;
   status: string;
   estimatedDeliveryDate: string;
+  packageImageUrl?: string | null;
 }): Promise<SendEmailResult> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return { success: false, error: "RESEND_API_KEY is not configured." };
@@ -307,6 +323,17 @@ export async function sendCustomEmail({
                 </table>
               </td></tr>
             </table>
+
+            ${
+              status === "Parcel Collected" && packageImageUrl
+                ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:28px">
+              <tr><td>
+                <div style="margin-bottom:12px;color:#07152f;font-size:16px;font-weight:800">Package image recorded at collection</div>
+                <img src="${escapeHtml(packageImageUrl)}" alt="Collected package for ${escapeHtml(trackingNumber)}" style="display:block;width:100%;max-height:480px;object-fit:contain;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc" />
+              </td></tr>
+            </table>`
+                : ""
+            }
 
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:28px">
               <tr><td align="center">
@@ -354,11 +381,11 @@ export async function sendStatusEmail(data: EmailData): Promise<SendEmailResult>
   const config = STATUS_CONFIGS[data.status] ?? {
     emoji: "📦",
     headline: data.status,
-    bodyText: "Your TBC shipment has been updated. Please check the details below.",
+    bodyText: "Your Royal Runs Delivery shipment has been updated. Please check the details below.",
     headerColor: "#0047bb",
   };
 
-  const subject = `TBC Update: ${data.status} — Tracking ${data.trackingNumber}`;
+  const subject = `Royal Runs Delivery Update: ${data.status} — Tracking ${data.trackingNumber}`;
   const html = generateEmailHtml(data, config);
 
   try {

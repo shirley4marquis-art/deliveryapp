@@ -69,9 +69,9 @@ export function ShippingLabelGenerator({
     JsBarcode(barcodeRef.current, form.tracking.replace(/\s/g, ""), {
       format: "CODE128",
       displayValue: false,
-      height: form.carrier === "fedex" ? 76 : 64,
+      height: form.carrier === "fedex" ? 115 : 64,
       margin: 0,
-      width: 2,
+      width: form.carrier === "fedex" ? 3 : 2,
     });
   }, [form?.tracking, form?.carrier]);
 
@@ -228,83 +228,28 @@ export function ShippingLabelGenerator({
                   />
                 </>
               ) : (
-                <>
-                  <div className="grid grid-cols-2 gap-3">
-                    <TextField
-                      label="Contents"
-                      onChange={(value) => setField("contents", value)}
-                      value={form.contents}
-                    />
-                    <TextField
-                      label="Weight"
-                      onChange={(value) => setField("weight", value)}
-                      value={form.weight}
-                    />
-                  </div>
+                <div className="grid grid-cols-2 gap-3">
                   <TextField
-                    label="Description"
-                    onChange={(value) => setField("description", value)}
-                    value={form.description}
+                    label="Contents"
+                    onChange={(value) => setField("contents", value)}
+                    value={form.contents}
                   />
-                  <div className="grid grid-cols-2 gap-3">
-                    <TextField
-                      label="Dimensions"
-                      onChange={(value) => setField("dimensions", value)}
-                      placeholder="30 × 20 × 10 cm"
-                      value={form.dimensions}
-                    />
-                    <TextField
-                      label="Declared value"
-                      onChange={(value) => setField("declaredValue", value)}
-                      placeholder="£0.00"
-                      value={form.declaredValue}
-                    />
-                  </div>
                   <TextField
-                    label="Security seal number"
-                    onChange={(value) => setField("sealNumber", value)}
-                    placeholder="Optional"
-                    value={form.sealNumber}
+                    label="Weight"
+                    onChange={(value) => setField("weight", value)}
+                    value={form.weight}
                   />
-                  <div className="grid grid-cols-2 gap-2">
-                    <CheckField
-                      checked={form.signatureRequired}
-                      label="Signature"
-                      onChange={(value) => setField("signatureRequired", value)}
-                    />
-                    <CheckField
-                      checked={form.idVerification}
-                      label="ID check"
-                      onChange={(value) => setField("idVerification", value)}
-                    />
-                    <CheckField
-                      checked={form.fragile}
-                      label="Fragile"
-                      onChange={(value) => setField("fragile", value)}
-                    />
-                    <CheckField
-                      checked={form.doNotStack}
-                      label="Do not stack"
-                      onChange={(value) => setField("doNotStack", value)}
-                    />
-                    <CheckField
-                      checked={form.thisSideUp}
-                      label="This side up"
-                      onChange={(value) => setField("thisSideUp", value)}
-                    />
-                    <CheckField
-                      checked={form.securitySeal}
-                      label="Security seal"
-                      onChange={(value) => setField("securitySeal", value)}
-                    />
-                  </div>
-                </>
+                </div>
               )}
             </div>
           </aside>
 
           <section className="preview-shell overflow-auto rounded-2xl border border-slate-200 bg-slate-200 p-4 shadow-inner md:p-8">
-            <div className="shipping-label mx-auto bg-white text-black">
+            <div
+              className={`shipping-label mx-auto bg-white text-black ${
+                form.carrier === "fedex" ? "fedex-label" : "royal-mail-label"
+              }`}
+            >
               {form.carrier === "fedex" ? (
                 <FedExLabel
                   barcodeRef={barcodeRef}
@@ -327,15 +272,34 @@ export function ShippingLabelGenerator({
       <style jsx global>{`
         .shipping-label {
           box-sizing: border-box;
+          font-family: Arial, Helvetica, sans-serif;
+        }
+        .fedex-label {
+          min-height: 297mm;
+          width: 210mm;
+        }
+        .fedex-label .address-label {
+          font-size: 14px;
+          letter-spacing: 0.08em;
+        }
+        .fedex-label .address-value {
+          font-size: 23px;
+          line-height: 1.4;
+          margin-top: 12px;
+        }
+        .royal-mail-label {
           min-height: 6in;
           width: 4in;
-          font-family: Arial, Helvetica, sans-serif;
         }
         .shipping-label * {
           box-sizing: border-box;
         }
         @media print {
-          @page {
+          @page fedex {
+            margin: 0;
+            size: A4 portrait;
+          }
+          @page royalmail {
             margin: 0;
             size: 4in 6in;
           }
@@ -352,9 +316,17 @@ export function ShippingLabelGenerator({
           .shipping-label {
             left: 0;
             margin: 0;
-            min-height: 6in;
             position: absolute;
             top: 0;
+          }
+          .fedex-label {
+            min-height: 297mm;
+            page: fedex;
+            width: 210mm;
+          }
+          .royal-mail-label {
+            min-height: 6in;
+            page: royalmail;
             width: 4in;
           }
           .no-print,
@@ -379,89 +351,56 @@ function FedExLabel({
   shipment: Shipment;
 }) {
   return (
-    <article className="min-h-[6in] border-2 border-black p-3">
-      <div className="flex items-start justify-between border-b-2 border-black pb-2">
-        <span className="mt-2 h-8 w-16 bg-black" />
+    <article className="min-h-[297mm] border-[3px] border-black p-8">
+      <div className="flex items-start justify-between border-b-[3px] border-black pb-6">
+        <span className="mt-3 h-14 w-32 bg-black" />
         <div className="text-center">
-          <div className="text-[42px] font-black leading-none tracking-[-0.08em]">
+          <div className="text-[78px] font-black leading-none tracking-[-0.08em]">
             <span className="text-[#4d148c]">Fed</span>
             <span className="text-[#ff6600]">Ex</span>
           </div>
-          <p className="mt-1 text-sm font-black uppercase tracking-wide">
+          <p className="mt-2 text-2xl font-black uppercase tracking-wide">
             {form.service}
           </p>
         </div>
-        <span className="mt-2 h-8 w-16 bg-black" />
+        <span className="mt-3 h-14 w-32 bg-black" />
       </div>
 
-      <div className="grid min-h-28 grid-cols-2 border-b-2 border-black">
+      <div className="grid min-h-[72mm] grid-cols-2 border-b-[3px] border-black">
         <AddressBlock label="From (shipper)" value={form.sender} />
         <AddressBlock bordered label="To (recipient)" value={form.recipient} />
       </div>
 
-      <div className="py-3 text-center">
-        <p className="text-sm font-black">TRACKING #</p>
-        <svg className="mx-auto mt-2 max-w-full" ref={barcodeRef} />
-        <p className="mt-1 font-mono text-lg font-black tracking-widest">
+      <div className="border-b-[3px] border-black py-10 text-center">
+        <p className="text-2xl font-black">TRACKING NUMBER</p>
+        <svg className="mx-auto mt-6 max-w-[90%]" ref={barcodeRef} />
+        <p className="mt-5 font-mono text-4xl font-black tracking-[0.16em]">
           {form.tracking}
         </p>
       </div>
 
-      <div className="grid grid-cols-2 border-y-2 border-black text-[10px]">
-        <div className="p-2">
-          <p><b>Service type:</b> {form.service}</p>
-          <p className="mt-1">
-            <b>Est. delivery:</b>{" "}
+      <div className="grid min-h-[54mm] grid-cols-2 border-b-[3px] border-black text-xl">
+        <div className="p-6">
+          <p className="text-sm font-black uppercase tracking-widest">Service</p>
+          <p className="mt-2 text-2xl font-black">{form.service}</p>
+          <p className="mt-7 text-sm font-black uppercase tracking-widest">
+            Estimated delivery
+          </p>
+          <p className="mt-2 text-2xl font-black">
             {formatLabelDate(shipment.estimated_delivery_date)}
           </p>
         </div>
-        <div className="border-l-2 border-black p-2">
-          <p><b>Reference:</b> {shipment.external_order_id || shipment.id.slice(0, 8)}</p>
-          <p className="mt-1"><b>Status:</b> {shipment.current_status}</p>
+        <div className="border-l-[3px] border-black p-6">
+          <p className="text-sm font-black uppercase tracking-widest">Contents</p>
+          <p className="mt-2 text-2xl font-black">{form.contents || "Parcel"}</p>
+          <p className="mt-7 text-sm font-black uppercase tracking-widest">
+            Total weight
+          </p>
+          <p className="mt-2 text-2xl font-black">{form.weight || "—"}</p>
         </div>
       </div>
 
-      <div className="grid min-h-28 grid-cols-2 border-b-2 border-black text-[10px]">
-        <div className="p-2">
-          <p className="mb-1 text-xs font-black">PACKAGE DETAILS</p>
-          <Detail label="Contents" value={form.contents} />
-          <Detail label="Description" value={form.description} />
-          <Detail label="Total weight" value={form.weight} />
-          <Detail label="Dimensions" value={form.dimensions || "—"} />
-          <Detail label="Declared value" value={form.declaredValue || "—"} />
-        </div>
-        <div className="border-l-2 border-black p-2">
-          <p className="mb-1 text-xs font-black">SECURITY INFORMATION</p>
-          <Detail label="Seal type" value={form.securitySeal ? "Tamper evident" : "None"} />
-          <Detail label="Seal number" value={form.sealNumber || "—"} />
-          <Detail label="Seal status" value={form.securitySeal ? "Verify at delivery" : "N/A"} />
-        </div>
-      </div>
-
-      <div className="border-b-2 border-black py-2">
-        <p className="text-center text-xs font-black">HANDLING INSTRUCTIONS</p>
-        <div className="mt-2 grid grid-cols-5 gap-1 text-center text-[8px] font-bold">
-          <Handling active={form.fragile} icon="◉" label="FRAGILE" />
-          <Handling active={form.doNotStack} icon="⊠" label="DO NOT STACK" />
-          <Handling active={form.thisSideUp} icon="↑↑" label="THIS SIDE UP" />
-          <Handling active icon="□" label="HANDLE WITH CARE" />
-          <Handling active={form.securitySeal} icon="▣" label="SECURITY SEALED" />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 text-[9px]">
-        <div className="p-2">
-          <p className="font-black">DELIVERY REQUIREMENTS</p>
-          <p className="mt-1">Signature: {yesNo(form.signatureRequired)}</p>
-          <p>ID verification: {yesNo(form.idVerification)}</p>
-        </div>
-        <div className="border-l-2 border-black p-2">
-          <p className="font-black">RECIPIENT NOTICE</p>
-          <p className="mt-1">Verify the parcel and any security seal before acceptance.</p>
-        </div>
-      </div>
-
-      <p className="mt-1 border-t border-black pt-1 text-[8px] font-bold">
+      <p className="mt-6 text-center text-sm font-bold tracking-wide">
         CARRIER REFERENCE LABEL · NOT PROOF OF POSTAGE OR PAYMENT
       </p>
     </article>
@@ -559,31 +498,10 @@ function AddressBlock({
 }) {
   return (
     <div className={`p-2 ${bordered ? "border-l-2 border-black" : ""}`}>
-      <p className="text-[10px] font-black uppercase">{label}</p>
-      <p className="mt-1 whitespace-pre-line text-[11px] leading-4">{value}</p>
-    </div>
-  );
-}
-
-function Detail({ label, value }: { label: string; value: string }) {
-  return <p className="mt-0.5"><b>{label}:</b> {value}</p>;
-}
-
-function Handling({
-  active,
-  icon,
-  label,
-}: {
-  active: boolean;
-  icon: string;
-  label: string;
-}) {
-  return (
-    <div className={active ? "opacity-100" : "opacity-25"}>
-      <span className="mx-auto flex h-8 w-8 items-center justify-center border-2 border-black text-lg font-black">
-        {icon}
-      </span>
-      <p className="mt-1">{label}</p>
+      <p className="address-label text-[10px] font-black uppercase">{label}</p>
+      <p className="address-value mt-1 whitespace-pre-line text-[11px] leading-4">
+        {value}
+      </p>
     </div>
   );
 }
@@ -660,28 +578,6 @@ function SelectField({
   );
 }
 
-function CheckField({
-  checked,
-  label,
-  onChange,
-}: {
-  checked: boolean;
-  label: string;
-  onChange: (value: boolean) => void;
-}) {
-  return (
-    <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 p-2 text-xs font-bold text-[#1f3556]">
-      <input
-        checked={checked}
-        className="accent-[#0047bb]"
-        onChange={(event) => onChange(event.target.checked)}
-        type="checkbox"
-      />
-      {label}
-    </label>
-  );
-}
-
 function createLabelForm(shipment: Shipment): LabelForm {
   const carrier: Carrier = /royal mail|tracked|special delivery/i.test(
     shipment.delivery_service,
@@ -752,8 +648,4 @@ function inferItemNature(shipment: Shipment) {
   if (/food|fresh|perishable/.test(details)) return "Perishable";
   if (/fragile|glass|ceramic/.test(details)) return "Fragile";
   return "General Parcel";
-}
-
-function yesNo(value: boolean) {
-  return value ? "Required" : "Not required";
 }

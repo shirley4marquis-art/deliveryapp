@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, RefreshCw, Save, Search, Trash2, PackagePlus, Mail, X, Users, MapPinned } from "lucide-react";
+import { Plus, RefreshCw, Save, Search, Trash2, PackagePlus, Mail, X, Users, MapPinned, Printer } from "lucide-react";
 import {
   AddressAutocomplete,
   type VerifiedAddress,
@@ -1319,6 +1319,12 @@ Customs & Clearance Team`,
                       href={`/admin/tracking/${shipment.id}`}
                     >
                       <MapPinned size={15} /> Edit tracking
+                    </Link>
+                    <Link
+                      className="inline-flex items-center gap-2 rounded-lg border border-[#07152f] bg-[#fff1cc] px-3 py-2 text-sm font-bold text-[#07152f]"
+                      href={`/admin/labels/${shipment.id}`}
+                    >
+                      <Printer size={15} /> Shipping label
                     </Link>
                     <button
                       className="inline-flex items-center gap-2 rounded-lg border border-[#0047bb] px-3 py-2 text-sm font-bold text-[#0047bb]"

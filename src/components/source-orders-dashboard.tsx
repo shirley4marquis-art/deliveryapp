@@ -10,6 +10,7 @@ import {
   Mail,
   MapPinned,
   PackageCheck,
+  Printer,
   Search,
   UserRound,
   X,
@@ -471,6 +472,12 @@ function StatusGroup({
                 href={`/admin/tracking/${shipment.id}`}
               >
                 <MapPinned size={16} /> Manage tracking
+              </Link>
+              <Link
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#07152f] bg-[#fff1cc] px-4 py-2.5 text-sm font-black text-[#07152f]"
+                href={`/admin/labels/${shipment.id}`}
+              >
+                <Printer size={16} /> Create shipping label
               </Link>
               <label className="relative">
                 <Mail

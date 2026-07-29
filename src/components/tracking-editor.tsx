@@ -8,6 +8,7 @@ import {
   ImagePlus,
   Mail,
   Plus,
+  Printer,
   Save,
   Trash2,
   Upload,
@@ -275,6 +276,12 @@ export function TrackingEditor({ shipmentId }: { shipmentId: string }) {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Link
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#fff1cc] px-4 py-3 text-sm font-black text-[#07152f]"
+              href={`/admin/labels/${shipment.id}`}
+            >
+              <Printer size={16} /> Create shipping label
+            </Link>
             <button
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-3 text-sm font-black text-white disabled:opacity-50"
               disabled={busy === "vat-email" || !shipment.receiver_email}

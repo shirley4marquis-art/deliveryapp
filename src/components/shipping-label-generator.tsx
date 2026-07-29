@@ -69,9 +69,9 @@ export function ShippingLabelGenerator({
     JsBarcode(barcodeRef.current, form.tracking.replace(/\s/g, ""), {
       format: "CODE128",
       displayValue: false,
-      height: form.carrier === "fedex" ? 115 : 64,
+      height: 115,
       margin: 0,
-      width: form.carrier === "fedex" ? 3 : 2,
+      width: 3,
     });
   }, [form?.tracking, form?.carrier]);
 
@@ -290,8 +290,8 @@ export function ShippingLabelGenerator({
           margin-top: 12px;
         }
         .royal-mail-label {
-          min-height: 6in;
-          width: 4in;
+          min-height: 297mm;
+          width: 210mm;
         }
         .shipping-label * {
           box-sizing: border-box;
@@ -311,7 +311,7 @@ export function ShippingLabelGenerator({
           }
           @page royalmail {
             margin: 0;
-            size: 4in 6in;
+            size: A4 portrait;
           }
           body {
             background: white !important;
@@ -338,9 +338,9 @@ export function ShippingLabelGenerator({
             width: 210mm;
           }
           .royal-mail-label {
-            min-height: 6in;
+            min-height: 297mm;
             page: royalmail;
-            width: 4in;
+            width: 210mm;
           }
           .no-print,
           .preview-shell {
@@ -435,64 +435,64 @@ function RoyalMailLabel({
   const requiresSignature =
     form.signatureRequired || /special delivery/i.test(form.service);
   return (
-    <article className="min-h-[6in] border-2 border-black">
-      <div className="grid grid-cols-[1fr_110px] border-b-2 border-black">
-        <div className="p-3">
-          <p className="text-[37px] font-black leading-none">
+    <article className="min-h-[297mm] border-[3px] border-black">
+      <div className="grid grid-cols-[1fr_190px] border-b-[3px] border-black">
+        <div className="p-7">
+          <p className="text-[66px] font-black leading-none">
             {form.service.replace(/\s*\d+$/, "")}{" "}
-            <span className="text-[58px]">{speed}</span>
+            <span className="text-[96px]">{speed}</span>
           </p>
-          <p className="mt-1 text-xl leading-none">
+          <p className="mt-2 text-3xl leading-none">
             {requiresSignature ? "Signature Required" : "No Signature"}
           </p>
         </div>
-        <div className="flex flex-col items-center justify-center border-l-2 border-black p-2">
-          <p className="text-xs">Delivered by</p>
-          <div className="mt-1 border-2 border-red-700 bg-[#e3202b] px-2 py-1 text-center text-sm font-black text-yellow-300">
+        <div className="flex flex-col items-center justify-center border-l-[3px] border-black p-5">
+          <p className="text-xl">Delivered by</p>
+          <div className="mt-3 border-[3px] border-red-700 bg-[#e3202b] px-4 py-3 text-center text-2xl font-black text-yellow-300">
             Royal Mail
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-[1fr_80px] border-b-2 border-black">
-        <div className="flex text-3xl font-black">
-          <span className="bg-yellow-300 px-4 py-2">{routeCode.slice(0, 3)}</span>
-          <span className="bg-black px-4 py-2 text-white">{routeCode.slice(3)}</span>
+      <div className="grid grid-cols-[1fr_190px] border-b-[3px] border-black">
+        <div className="flex text-5xl font-black">
+          <span className="bg-yellow-300 px-8 py-5">{routeCode.slice(0, 3)}</span>
+          <span className="bg-black px-8 py-5 text-white">{routeCode.slice(3)}</span>
         </div>
-        <div className="p-2 text-center text-[10px]">
+        <div className="p-4 text-center text-base">
           <p className="uppercase">Item type</p>
-          <p className="mt-0.5 font-black">{form.itemNature}</p>
-          <p className="mt-0.5">{form.weight || "—"}</p>
+          <p className="mt-1 text-xl font-black">{form.itemNature}</p>
+          <p className="mt-1 font-bold">{form.weight || "—"}</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-[105px_1fr] gap-3 border-b-2 border-black p-3">
+      <div className="grid grid-cols-[190px_1fr] gap-8 border-b-[3px] border-black p-7">
         <div>
           {qrCode ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img alt="Tracking QR code" className="h-[92px] w-[92px]" src={qrCode} />
+            <img alt="Tracking QR code" className="h-[170px] w-[170px]" src={qrCode} />
           ) : (
-            <div className="h-[92px] w-[92px] bg-slate-100" />
+            <div className="h-[170px] w-[170px] bg-slate-100" />
           )}
         </div>
         <div className="min-w-0 text-center">
           <svg className="mx-auto max-w-full" ref={barcodeRef} />
-          <p className="mt-1 bg-yellow-300 px-1 font-mono text-base font-black">
+          <p className="mt-4 bg-yellow-300 px-2 py-1 font-mono text-2xl font-black">
             {form.tracking}
           </p>
         </div>
       </div>
 
-      <div className="min-h-[2.15in] border-b-2 border-black p-4">
-        <p className="whitespace-pre-line text-2xl leading-8">{form.recipient}</p>
+      <div className="min-h-[105mm] border-b-[3px] border-black p-10">
+        <p className="whitespace-pre-line text-4xl leading-[1.45]">{form.recipient}</p>
       </div>
 
-      <div className="p-3 text-center">
-        <p className="font-mono text-[30px] font-black tracking-wide">
+      <div className="p-7 text-center">
+        <p className="font-mono text-[48px] font-black tracking-wide">
           {form.tracking}
         </p>
-        <div className="mt-2 flex items-center justify-center gap-2 text-[9px] font-bold">
-          <ShieldCheck size={13} />
+        <div className="mt-4 flex items-center justify-center gap-3 text-sm font-bold">
+          <ShieldCheck size={19} />
           CARRIER REFERENCE LABEL AND PROOF OF POSTAGE
         </div>
       </div>

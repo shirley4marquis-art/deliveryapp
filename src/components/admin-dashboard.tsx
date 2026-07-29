@@ -702,12 +702,19 @@ Customs & Clearance Team`,
     <div className="grid gap-8">
       <div className="flex flex-col gap-3 rounded-lg border border-[#c8d9f5] bg-[#f3f7ff] p-5 text-[#07152f] md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="text-2xl font-black">Admin Dashboard</h2>
+          <h2 className="text-2xl font-black">New Order Management</h2>
           <p className="text-sm font-medium text-[#10213f]">
-            Manage shipments, parcel statuses, and tracking timelines.
+            Import an incoming order or create a new shipment. Use the source
+            panels for existing shipment and tracking management.
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
+          <Link
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-[#07152f]"
+            href="/admin"
+          >
+            Admin home
+          </Link>
           <Link
             className="inline-flex items-center gap-2 rounded-lg border border-green-400 bg-green-50 px-4 py-2 text-sm font-bold text-green-900"
             href="/admin/orders/one-connect"
@@ -723,7 +730,7 @@ Customs & Clearance Team`,
             Ruco Supply orders
           </Link>
           <a
-            className="inline-flex items-center gap-2 rounded-lg border border-yellow-400 bg-yellow-50 px-4 py-2 text-sm font-bold text-yellow-950"
+            className="hidden"
             href="#ruco-clients"
           >
             <Users size={16} />
@@ -746,7 +753,7 @@ Customs & Clearance Team`,
             New Shipment
           </button>
           <button
-            className="inline-flex items-center gap-2 rounded-lg border border-yellow-400 bg-yellow-100 px-4 py-2 text-sm font-bold text-yellow-950 disabled:opacity-50"
+            className="hidden"
             disabled={sendingRucoBatch}
             onClick={sendRucoVatBatch}
             type="button"
@@ -803,7 +810,7 @@ Customs & Clearance Team`,
       )}
 
       <section
-        className="rounded-xl border border-yellow-300 bg-gradient-to-br from-yellow-50 to-white p-5 shadow-sm"
+        className="hidden"
         id="ruco-clients"
       >
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -1196,7 +1203,7 @@ Customs & Clearance Team`,
           </div>
         </form>
 
-        <form className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm" onSubmit={addTimelineEvent}>
+        <form className="hidden" onSubmit={addTimelineEvent}>
           <h3 className="text-xl font-black">Add timeline event</h3>
           <label className="mt-5 block">
             <span className="text-sm font-bold text-[#10213f]">Shipment</span>
@@ -1246,7 +1253,7 @@ Customs & Clearance Team`,
         </form>
       </section>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="hidden">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <h3 className="text-xl font-black">All shipments</h3>
           <label className="flex h-11 min-w-0 items-center gap-2 rounded-lg border border-slate-300 px-3 md:w-80">

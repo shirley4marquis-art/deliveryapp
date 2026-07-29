@@ -81,7 +81,7 @@ export function ShippingLabelGenerator({
     void QRCode.toDataURL(trackingUrl, {
       errorCorrectionLevel: "M",
       margin: 0,
-      width: 180,
+      width: 600,
       color: { dark: "#000000", light: "#ffffff" },
     }).then(setQrCode);
   }, [form?.tracking]);
@@ -135,7 +135,7 @@ export function ShippingLabelGenerator({
             onClick={() => window.print()}
             type="button"
           >
-            <Printer size={18} /> Print / save PDF
+            <Printer size={18} /> Print HD colour / save PDF
           </button>
         </header>
 
@@ -273,6 +273,8 @@ export function ShippingLabelGenerator({
         .shipping-label {
           box-sizing: border-box;
           font-family: Arial, Helvetica, sans-serif;
+          print-color-adjust: exact;
+          -webkit-print-color-adjust: exact;
         }
         .fedex-label {
           min-height: 297mm;
@@ -293,6 +295,14 @@ export function ShippingLabelGenerator({
         }
         .shipping-label * {
           box-sizing: border-box;
+          print-color-adjust: exact;
+          -webkit-print-color-adjust: exact;
+        }
+        .shipping-label svg {
+          shape-rendering: crispEdges;
+        }
+        .shipping-label img {
+          image-rendering: pixelated;
         }
         @media print {
           @page fedex {
@@ -305,6 +315,8 @@ export function ShippingLabelGenerator({
           }
           body {
             background: white !important;
+            print-color-adjust: exact !important;
+            -webkit-print-color-adjust: exact !important;
           }
           body > * {
             visibility: hidden;
@@ -314,6 +326,7 @@ export function ShippingLabelGenerator({
             visibility: visible;
           }
           .shipping-label {
+            background: white !important;
             left: 0;
             margin: 0;
             position: absolute;

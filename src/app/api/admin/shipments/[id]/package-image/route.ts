@@ -4,12 +4,7 @@ import { getSupabaseForUser } from "@/lib/supabase";
 import { sendRucoShipmentReceivedEmail } from "@/lib/email";
 import { isRucoSupplyShipment } from "@/lib/ruco";
 
-const allowedTypes = new Map([
-  ["image/jpeg", "jpg"],
-  ["image/png", "png"],
-  ["image/webp", "webp"],
-]);
-const maxFileSize = 5 * 1024 * 1024;
+const maxFileSize = 10 * 1024 * 1024;
 
 export async function POST(
   request: Request,
@@ -31,19 +26,19 @@ export async function POST(
     );
   }
 
-  const extension = allowedTypes.get(image.type);
-  if (!extension) {
+  if (!image.type.toLowerCase().startsWith("image/")) {
     return NextResponse.json(
-      { error: "Package images must be JPEG, PNG, or WebP." },
+      { error: "The selected file must be an image." },
       { status: 400 },
     );
   }
   if (image.size > maxFileSize) {
     return NextResponse.json(
-      { error: "Package images must be 5 MB or smaller." },
+      { error: "Package images must be 10 MB or smaller." },
       { status: 400 },
     );
   }
+  const extension = safeImageExtension(image);
 
   const supabase = getSupabaseForUser(admin.accessToken);
   const { data: shipment, error: shipmentError } = await supabase
@@ -58,15 +53,6 @@ export async function POST(
   const isRucoAtCreation =
     shipment.current_status === "Shipment Created" &&
     isRucoSupplyShipment(shipment);
-  if (shipment.current_status !== "Parcel Collected" && !isRucoAtCreation) {
-    return NextResponse.json(
-      {
-        error:
-          "A package image can be added to a new Ruco shipment or when a parcel is collected.",
-      },
-      { status: 409 },
-    );
-  }
 
   const objectPath = `${id}/${Date.now()}.${extension}`;
   const { error: uploadError } = await supabase.storage
@@ -91,6 +77,13 @@ export async function POST(
   if (updateError) {
     await supabase.storage.from("package-images").remove([objectPath]);
     return NextResponse.json({ error: updateError.message }, { status: 500 });
+  }
+
+  if (shipment.package_image_url) {
+    const previousPath = storagePathFromPublicUrl(shipment.package_image_url);
+    if (previousPath && previousPath !== objectPath) {
+      await supabase.storage.from("package-images").remove([previousPath]);
+    }
   }
 
   let confirmationEmail:
@@ -131,4 +124,70 @@ export async function POST(
     imageUrl: publicUrl.publicUrl,
     confirmationEmail,
   });
+}
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const admin = await getAuthenticatedAdmin();
+  if (!admin) {
+    return NextResponse.json({ error: "Unauthorised." }, { status: 401 });
+  }
+
+  const { id } = await params;
+  const supabase = getSupabaseForUser(admin.accessToken);
+  const { data: shipment, error } = await supabase
+    .from("shipments")
+    .select("package_image_url")
+    .eq("id", id)
+    .single();
+
+  if (error || !shipment) {
+    return NextResponse.json({ error: "Shipment not found." }, { status: 404 });
+  }
+
+  const { error: updateError } = await supabase
+    .from("shipments")
+    .update({ package_image_url: null })
+    .eq("id", id);
+
+  if (updateError) {
+    return NextResponse.json({ error: updateError.message }, { status: 500 });
+  }
+
+  const objectPath = storagePathFromPublicUrl(shipment.package_image_url);
+  if (objectPath) {
+    await supabase.storage.from("package-images").remove([objectPath]);
+  }
+
+  return NextResponse.json({ ok: true });
+}
+
+function storagePathFromPublicUrl(value: string | null) {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    const marker = "/storage/v1/object/public/package-images/";
+    const markerIndex = url.pathname.indexOf(marker);
+    return markerIndex === -1
+      ? null
+      : decodeURIComponent(url.pathname.slice(markerIndex + marker.length));
+  } catch {
+    return null;
+  }
+}
+
+function safeImageExtension(image: File) {
+  const filenameExtension = image.name.split(".").at(-1)?.toLowerCase() || "";
+  if (/^[a-z0-9]{1,12}$/.test(filenameExtension)) {
+    return filenameExtension;
+  }
+
+  const mimeExtension = image.type
+    .slice("image/".length)
+    .split("+")[0]
+    .replace(/[^a-z0-9]/g, "")
+    .slice(0, 12);
+  return mimeExtension || "image";
 }

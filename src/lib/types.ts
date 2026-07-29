@@ -26,6 +26,8 @@ export type TrackingEvent = {
 export type Shipment = {
   id: string;
   tracking_number: string;
+  external_order_id: string | null;
+  order_source: string | null;
   sender_name: string;
   sender_address: string;
   sender_city: string;
@@ -62,6 +64,8 @@ export type Shipment = {
 export type ShipmentInput = Omit<
   Shipment,
   | "id"
+  | "external_order_id"
+  | "order_source"
   | "created_at"
   | "updated_at"
   | "tracking_events"

@@ -48,6 +48,41 @@ async function buildTransitPatch(
   return { live_tracking_enabled: false };
 }
 
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const admin = await getAuthenticatedAdmin();
+  if (!admin) {
+    return NextResponse.json({ error: "Unauthorised." }, { status: 401 });
+  }
+
+  const { id } = await params;
+
+  try {
+    const supabase = getSupabaseForUser(admin.accessToken);
+    const { data, error } = await supabase
+      .from("shipments")
+      .select("*, tracking_events(*)")
+      .eq("id", id)
+      .single();
+
+    if (error || !data) {
+      return NextResponse.json(
+        { error: error?.message || "Shipment not found." },
+        { status: error?.code === "PGRST116" ? 404 : 500 },
+      );
+    }
+
+    return NextResponse.json({ shipment: data });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Unable to load shipment." },
+      { status: 500 },
+    );
+  }
+}
+
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> },

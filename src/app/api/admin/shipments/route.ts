@@ -6,6 +6,7 @@ import { parseShipmentInput } from "@/lib/validation";
 import { fetchOSRMRoute, isMoving, isDelivered } from "@/lib/transit";
 import { sendRucoShipmentReceivedEmail } from "@/lib/email";
 import { isRucoSupplyShipment } from "@/lib/ruco";
+import { sourceStorageValue } from "@/lib/shipment-source";
 
 export async function GET() {
   const admin = await getAuthenticatedAdmin();
@@ -79,6 +80,7 @@ export async function POST(request: Request) {
       .from("shipments")
       .insert({
         ...s,
+        order_source: sourceStorageValue(s.sender_name),
         ...transitPatch,
         ...(createdAt ? { created_at: createdAt } : {}),
       })

@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, RefreshCw, Save, Search, Trash2, PackagePlus, Mail, X, Users } from "lucide-react";
+import { Plus, RefreshCw, Save, Search, Trash2, PackagePlus, Mail, X, Users, MapPinned } from "lucide-react";
 import {
   AddressAutocomplete,
   type VerifiedAddress,
@@ -11,6 +12,7 @@ import { AdminRouteMap } from "@/components/admin-route-map";
 import { parcelStatuses, type ParcelStatus, type Shipment } from "@/lib/types";
 import { parsePastedOrder } from "@/lib/order-import";
 import { isRucoSupplyCustomer, isRucoSupplyShipment } from "@/lib/ruco";
+import { getShipmentSource } from "@/lib/shipment-source";
 
 const deliveryServices = [
   "Same-day delivery",
@@ -92,8 +94,8 @@ async function geocodeAddress(address: string) {
 
 type Toast = { message: string; type: "success" | "error" };
 
-function getOrderSourceTag(receiverName: string) {
-  if (isRucoSupplyCustomer(receiverName)) {
+function getOrderSourceTag(shipment: Shipment) {
+  if (getShipmentSource(shipment) === "ruco") {
     return {
       label: "Ruco Supply",
       className: "border-yellow-300 bg-yellow-100 text-yellow-900",
@@ -706,6 +708,20 @@ Customs & Clearance Team`,
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
+          <Link
+            className="inline-flex items-center gap-2 rounded-lg border border-green-400 bg-green-50 px-4 py-2 text-sm font-bold text-green-900"
+            href="/admin/orders/one-connect"
+          >
+            <PackagePlus size={16} />
+            1:1 Connect orders
+          </Link>
+          <Link
+            className="inline-flex items-center gap-2 rounded-lg border border-yellow-400 bg-yellow-50 px-4 py-2 text-sm font-bold text-yellow-950"
+            href="/admin/orders/ruco"
+          >
+            <Users size={16} />
+            Ruco Supply orders
+          </Link>
           <a
             className="inline-flex items-center gap-2 rounded-lg border border-yellow-400 bg-yellow-50 px-4 py-2 text-sm font-bold text-yellow-950"
             href="#ruco-clients"
@@ -1031,7 +1047,7 @@ Customs & Clearance Team`,
                   Package photo
                 </span>
                 <input
-                  accept="image/jpeg,image/png,image/webp"
+                  accept="image/*"
                   className="mt-2 block w-full rounded-lg border border-green-300 bg-white p-2 text-sm"
                   onChange={(event) =>
                     setNewPackageImage(event.target.files?.[0] || null)
@@ -1039,7 +1055,7 @@ Customs & Clearance Team`,
                   type="file"
                 />
                 <span className="mt-1 block text-xs text-[#50627f]">
-                  JPEG, PNG, or WebP; maximum 5 MB. Included in the first Ruco
+                  Any image format; maximum 10 MB. Included in the first Ruco
                   customer email.
                 </span>
               </label>
@@ -1123,11 +1139,11 @@ Customs & Clearance Team`,
                 Package photo for the first customer email
               </span>
               <span className="mt-1 block text-xs text-[#50627f]">
-                Optional. For a Ruco shipment, this JPEG, PNG, or WebP photo is
+                Optional. For a Ruco shipment, this image is
                 uploaded before the automatic confirmation email is sent.
               </span>
               <input
-                accept="image/jpeg,image/png,image/webp"
+                accept="image/*"
                 className="mt-3 block w-full text-sm"
                 onChange={(event) =>
                   setNewPackageImage(event.target.files?.[0] || null)
@@ -1251,7 +1267,7 @@ Customs & Clearance Team`,
             </div>
           ) : null}
           {!loadingShipments && filteredShipments.map((shipment) => {
-            const sourceTag = getOrderSourceTag(shipment.receiver_name);
+            const sourceTag = getOrderSourceTag(shipment);
 
             return (
               <article className="rounded-lg border border-slate-200 p-4" key={shipment.id}>
@@ -1287,9 +1303,12 @@ Customs & Clearance Team`,
                     ) : null}
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <button className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold" onClick={() => editShipment(shipment)} type="button">
-                      Edit
-                    </button>
+                    <Link
+                      className="inline-flex items-center gap-2 rounded-lg bg-[#0047bb] px-3 py-2 text-sm font-bold text-white"
+                      href={`/admin/tracking/${shipment.id}`}
+                    >
+                      <MapPinned size={15} /> Edit tracking
+                    </Link>
                     <button
                       className="inline-flex items-center gap-2 rounded-lg border border-[#0047bb] px-3 py-2 text-sm font-bold text-[#0047bb]"
                       onClick={() => openEmailComposer(shipment)}
@@ -1317,7 +1336,7 @@ Customs & Clearance Team`,
                             ? "Replace package image"
                             : "Add package image"}
                         <input
-                          accept="image/jpeg,image/png,image/webp"
+                          accept="image/*"
                           className="sr-only"
                           disabled={uploadingPackageImage === shipment.id}
                           onChange={(event) => {

@@ -761,8 +761,12 @@ Customs & Clearance Team`,
             <Mail size={16} />
             {sendingRucoBatch ? "Preparing Ruco emails..." : "Send 4 Ruco VAT emails"}
           </button>
-          <button className="rounded-lg border border-[#0047bb] px-4 py-2 text-sm font-bold text-[#0047bb] hover:bg-white" onClick={logout} type="button">
-            Sign out
+          <button
+            className="inline-flex items-center gap-2 rounded-lg bg-[#ef3340] px-5 py-2.5 text-sm font-black text-white shadow-md transition hover:bg-red-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#07152f]"
+            onClick={logout}
+            type="button"
+          >
+            <X size={17} /> Sign out
           </button>
         </div>
       </div>

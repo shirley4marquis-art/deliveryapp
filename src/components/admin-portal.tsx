@@ -71,7 +71,7 @@ export function AdminPortal() {
             </p>
           </div>
           <button
-            className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/25 px-4 py-3 text-sm font-black text-white hover:bg-white/10"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-white bg-[#ef3340] px-6 py-3.5 text-base font-black text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-red-700 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
             onClick={() => void logout()}
             type="button"
           >

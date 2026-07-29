@@ -414,7 +414,7 @@ function FedExLabel({
       </div>
 
       <p className="mt-6 text-center text-sm font-bold tracking-wide">
-        CARRIER REFERENCE LABEL · NOT PROOF OF POSTAGE OR PAYMENT
+        CARRIER REFERENCE LABEL · AND PROOF OF POSTAGE OR PAYMENT
       </p>
     </article>
   );

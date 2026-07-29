@@ -962,7 +962,7 @@ Customs & Clearance Team`,
             type="submit"
           >
             <PackagePlus size={16} />
-            {importingOrder ? "Inspecting order..." : "Inspect & prepare shipment"}
+            {importingOrder ? "Generating..." : "Generate"}
           </button>
           <button
             className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-bold"

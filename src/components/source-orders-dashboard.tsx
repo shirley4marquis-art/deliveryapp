@@ -250,7 +250,7 @@ export function SourceOrdersDashboard({
         ? groupedShipments.map((group) => (
             <StatusGroup
               key={group.status}
-              onSendVat={source === "ruco" ? sendVatEmail : undefined}
+              onSendVat={sendVatEmail}
               sendingVat={sendingVat}
               shipments={group.shipments}
               status={group.status}

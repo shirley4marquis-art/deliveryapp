@@ -19,7 +19,6 @@ import {
   type Shipment,
   type TrackingEvent,
 } from "@/lib/types";
-import { getShipmentSource } from "@/lib/shipment-source";
 
 type ShipmentForm = {
   tracking_number: string;
@@ -276,21 +275,19 @@ export function TrackingEditor({ shipmentId }: { shipmentId: string }) {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {getShipmentSource(shipment) === "ruco" ? (
-              <button
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-3 text-sm font-black text-white disabled:opacity-50"
-                disabled={busy === "vat-email" || !shipment.receiver_email}
-                onClick={() => void sendVatEmail()}
-                type="button"
-              >
-                <Mail size={16} />
-                {busy === "vat-email"
-                  ? "Sending VAT email…"
-                  : shipment.current_status === "On Hold"
-                    ? "Resend £110 VAT email"
-                    : "Send £110 VAT email"}
-              </button>
-            ) : null}
+            <button
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-3 text-sm font-black text-white disabled:opacity-50"
+              disabled={busy === "vat-email" || !shipment.receiver_email}
+              onClick={() => void sendVatEmail()}
+              type="button"
+            >
+              <Mail size={16} />
+              {busy === "vat-email"
+                ? "Sending VAT email…"
+                : shipment.current_status === "On Hold"
+                  ? "Resend £110 VAT email"
+                  : "Send £110 VAT email"}
+            </button>
             <Link
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-white px-4 py-3 text-sm font-black text-[#0047bb]"
               href={`/track?q=${encodeURIComponent(shipment.tracking_number)}`}

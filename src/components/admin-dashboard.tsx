@@ -957,7 +957,7 @@ Customs & Clearance Team`,
         </label>
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <button
-            className="inline-flex items-center gap-2 rounded-lg bg-[#07152f] px-5 py-3 text-sm font-bold text-white disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg bg-[#07152f] px-5 py-3 text-sm font-bold text-[#fff1cc] disabled:opacity-50"
             disabled={importingOrder || !pastedOrder.trim()}
             type="submit"
           >

@@ -522,7 +522,7 @@ function RoyalMailLabel({
         </p>
         <div className="mt-2 flex items-center justify-center gap-2 text-[9px] font-bold">
           <ShieldCheck size={13} />
-          CARRIER REFERENCE LABEL · NOT PROOF OF POSTAGE OR PAYMENT
+          CARRIER REFERENCE LABEL AND PROOF OF POSTAGE
         </div>
       </div>
     </article>

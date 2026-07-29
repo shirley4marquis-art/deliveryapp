@@ -129,6 +129,7 @@ export function AdminDashboard() {
   const [newPackageImage, setNewPackageImage] = useState<File | null>(null);
   const [pastedOrder, setPastedOrder] = useState("");
   const [importingOrder, setImportingOrder] = useState(false);
+  const [inspectedOrderReady, setInspectedOrderReady] = useState(false);
 
   function showToast(message: string, type: Toast["type"]) {
     setToast({ message, type });
@@ -213,13 +214,15 @@ Customs & Clearance Team`,
       receiver_city: imported.deliveryCity,
       receiver_postcode: imported.deliveryPostcode,
       package_type: imported.items.join("; ") || "Customer order",
-      weight: "To be confirmed",
+      weight: "",
       delivery_service: /standard|royal mail/i.test(imported.courier)
         ? "Standard delivery (2–3 days)"
         : imported.courier,
       estimated_delivery_date: eta.toISOString().slice(0, 10),
       notes: imported.notes,
     });
+    setNewPackageImage(null);
+    setInspectedOrderReady(true);
     showToast(
       `${imported.source} order inspected. Confirm the sender address, weight and ETA, then save the shipment.`,
       "success",
@@ -574,6 +577,8 @@ Customs & Clearance Team`,
     }
     setForm(emptyShipment());
     setNewPackageImage(null);
+    setInspectedOrderReady(false);
+    setPastedOrder("");
     setEditingId("");
     await loadShipments();
 
@@ -713,6 +718,8 @@ Customs & Clearance Team`,
             onClick={() => {
               setEditingId("");
               setForm(emptyShipment());
+              setInspectedOrderReady(false);
+              setNewPackageImage(null);
               setError("");
               setMessage("");
               window.scrollTo({ top: 0, behavior: "smooth" });
@@ -932,16 +939,145 @@ Customs & Clearance Team`,
           </button>
           <button
             className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-bold"
-            onClick={() => setPastedOrder("")}
+            onClick={() => {
+              setPastedOrder("");
+              setInspectedOrderReady(false);
+            }}
             type="button"
           >
             Clear
           </button>
         </div>
+
+        {inspectedOrderReady ? (
+          <section className="mt-6 rounded-xl border border-green-200 bg-green-50/60 p-5">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h4 className="text-lg font-black text-green-950">
+                  Complete this shipment
+                </h4>
+                <p className="mt-1 text-sm text-green-800">
+                  The order details are filled in. Add the remaining dispatch
+                  information and package photo, then create it here.
+                </p>
+              </div>
+              <span className="rounded-full bg-green-200 px-3 py-1 text-xs font-black text-green-900">
+                {form.sender_name}
+              </span>
+            </div>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <Field
+                label="Recipient name"
+                onChange={(value) => setForm({ ...form, receiver_name: value })}
+                value={form.receiver_name}
+              />
+              <Field
+                label="Recipient email"
+                onChange={(value) => setForm({ ...form, receiver_email: value })}
+                type="email"
+                value={form.receiver_email}
+              />
+              <Field
+                label="Delivery address"
+                onChange={(value) => setForm({ ...form, receiver_address: value })}
+                value={form.receiver_address}
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <Field
+                  label="City"
+                  onChange={(value) => setForm({ ...form, receiver_city: value })}
+                  value={form.receiver_city}
+                />
+                <Field
+                  label="Postcode"
+                  onChange={(value) =>
+                    setForm({ ...form, receiver_postcode: value.toUpperCase() })
+                  }
+                  value={form.receiver_postcode}
+                />
+              </div>
+              <Field
+                label="Ruco sender/collection address"
+                onChange={(value) => setForm({ ...form, sender_address: value })}
+                value={form.sender_address}
+              />
+              <Field
+                label="Sender city"
+                onChange={(value) => setForm({ ...form, sender_city: value })}
+                required={false}
+                value={form.sender_city}
+              />
+              <Field
+                label="Package contents"
+                onChange={(value) => setForm({ ...form, package_type: value })}
+                value={form.package_type}
+              />
+              <Field
+                label="Package weight"
+                onChange={(value) => setForm({ ...form, weight: value })}
+                value={form.weight}
+              />
+              <Field
+                label="Estimated delivery date"
+                onChange={(value) =>
+                  setForm({ ...form, estimated_delivery_date: value })
+                }
+                type="date"
+                value={form.estimated_delivery_date}
+              />
+              <label className="block">
+                <span className="text-sm font-bold text-[#10213f]">
+                  Package photo
+                </span>
+                <input
+                  accept="image/jpeg,image/png,image/webp"
+                  className="mt-2 block w-full rounded-lg border border-green-300 bg-white p-2 text-sm"
+                  onChange={(event) =>
+                    setNewPackageImage(event.target.files?.[0] || null)
+                  }
+                  type="file"
+                />
+                <span className="mt-1 block text-xs text-[#50627f]">
+                  JPEG, PNG, or WebP; maximum 5 MB. Included in the first Ruco
+                  customer email.
+                </span>
+              </label>
+            </div>
+
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <button
+                className="inline-flex items-center gap-2 rounded-lg bg-green-700 px-5 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={
+                  loading ||
+                  !form.sender_address.trim() ||
+                  !form.receiver_name.trim() ||
+                  !form.receiver_email.trim() ||
+                  !form.receiver_address.trim() ||
+                  !form.weight.trim() ||
+                  !form.estimated_delivery_date ||
+                  !newPackageImage
+                }
+                form="full-shipment-form"
+                type="submit"
+              >
+                <PackagePlus size={16} />
+                {loading ? "Creating shipment..." : "Create shipment & send first email"}
+              </button>
+              <p className="text-xs font-semibold text-green-800">
+                Creating a Ruco shipment sends the confirmation email immediately.
+              </p>
+            </div>
+          </section>
+        ) : null}
       </form>
 
       <section className="grid gap-6 lg:grid-cols-[1fr_0.75fr]">
-        <form className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm" onSubmit={saveShipment}>
+        <form
+          className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
+          id="full-shipment-form"
+          onSubmit={saveShipment}
+        >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="text-xl font-black">
               {editingId ? "Edit shipment" : "Create new shipment"}

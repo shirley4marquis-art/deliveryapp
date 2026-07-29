@@ -7,6 +7,7 @@ import {
   ArrowUpDown,
   Box,
   CalendarDays,
+  ImagePlus,
   Mail,
   MapPinned,
   PackageCheck,
@@ -61,6 +62,7 @@ export function SourceOrdersDashboard({
   const [message, setMessage] = useState("");
   const [emailDraft, setEmailDraft] = useState<EmailDraft | null>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState("");
 
   const loadShipments = useCallback(async () => {
     const response = await fetch("/api/admin/shipments");
@@ -122,6 +124,32 @@ export function SourceOrdersDashboard({
       `${typeLabel} sent directly to ${emailDraft.shipment.receiver_email}.`,
     );
     setEmailDraft(null);
+    await loadShipments();
+  }
+
+  async function uploadPackageImage(shipment: Shipment, image?: File) {
+    if (!image) return;
+    setUploadingImage(shipment.id);
+    setError("");
+    setMessage("");
+
+    const body = new FormData();
+    body.set("image", image);
+    const response = await fetch(
+      `/api/admin/shipments/${shipment.id}/package-image`,
+      { method: "POST", body },
+    );
+    const data = await response.json();
+    setUploadingImage("");
+
+    if (!response.ok) {
+      setError(data.error || "Unable to upload the shipment image.");
+      return;
+    }
+
+    setMessage(
+      `Shipment image ${shipment.package_image_url ? "replaced" : "uploaded"} for ${shipment.tracking_number}.`,
+    );
     await loadShipments();
   }
 
@@ -394,8 +422,10 @@ export function SourceOrdersDashboard({
             <StatusGroup
               key={group.status}
               onOpenEmail={openEmailDraft}
+              onUploadImage={uploadPackageImage}
               shipments={group.shipments}
               status={group.status}
+              uploadingImage={uploadingImage}
             />
           ))
         : null}
@@ -416,10 +446,14 @@ function StatusGroup({
   status,
   shipments,
   onOpenEmail,
+  onUploadImage,
+  uploadingImage,
 }: {
   status: ParcelStatus;
   shipments: Shipment[];
   onOpenEmail: (shipment: Shipment, type: EmailType) => void;
+  onUploadImage: (shipment: Shipment, image?: File) => Promise<void>;
+  uploadingImage: string;
 }) {
   return (
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -479,6 +513,37 @@ function StatusGroup({
               >
                 <Printer size={16} /> Create shipping label
               </Link>
+              {shipment.current_status === "Parcel Collected" ? (
+                <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-emerald-600 bg-emerald-50 px-4 py-2.5 text-sm font-black text-emerald-800">
+                  <ImagePlus size={16} />
+                  {uploadingImage === shipment.id
+                    ? "Uploading…"
+                    : shipment.package_image_url
+                      ? "Replace shipment image"
+                      : "Add shipment image"}
+                  <input
+                    accept="image/*"
+                    className="sr-only"
+                    disabled={uploadingImage === shipment.id}
+                    onChange={(event) => {
+                      const image = event.target.files?.[0];
+                      void onUploadImage(shipment, image);
+                      event.target.value = "";
+                    }}
+                    type="file"
+                  />
+                </label>
+              ) : null}
+              {shipment.package_image_url ? (
+                <a
+                  className="inline-flex items-center justify-center text-xs font-black text-[#0047bb] underline"
+                  href={shipment.package_image_url}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  View shipment image
+                </a>
+              ) : null}
               <label className="relative">
                 <Mail
                   className="pointer-events-none absolute left-3 top-3 text-[#0047bb]"

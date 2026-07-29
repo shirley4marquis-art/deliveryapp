@@ -20,6 +20,7 @@ type LabelForm = {
   sender: string;
   recipient: string;
   tracking: string;
+  itemNature: string;
   contents: string;
   description: string;
   weight: string;
@@ -204,11 +205,28 @@ export function ShippingLabelGenerator({
                 value={form.recipient}
               />
               {form.carrier === "royal-mail" ? (
-                <TextField
-                  label="Weight"
-                  onChange={(value) => setField("weight", value)}
-                  value={form.weight}
-                />
+                <>
+                  <SelectField
+                    label="Nature of item"
+                    onChange={(value) => setField("itemNature", value)}
+                    options={[
+                      ["General Parcel", "General parcel"],
+                      ["Fragile", "Fragile"],
+                      ["Electronics", "Electronics / device"],
+                      ["Documents", "Documents"],
+                      ["Clothing", "Clothing"],
+                      ["Medical", "Medical item"],
+                      ["Perishable", "Perishable"],
+                      ["Handle with Care", "Handle with care"],
+                    ]}
+                    value={form.itemNature}
+                  />
+                  <TextField
+                    label="Weight"
+                    onChange={(value) => setField("weight", value)}
+                    value={form.weight}
+                  />
+                </>
               ) : (
                 <>
                   <div className="grid grid-cols-2 gap-3">
@@ -490,8 +508,9 @@ function RoyalMailLabel({
           <span className="bg-black px-4 py-2 text-white">{routeCode.slice(3)}</span>
         </div>
         <div className="p-2 text-center text-[10px]">
-          <p>Carrier reference</p>
-          <p className="font-black">{form.weight || "—"}</p>
+          <p className="uppercase">Item type</p>
+          <p className="mt-0.5 font-black">{form.itemNature}</p>
+          <p className="mt-0.5">{form.weight || "—"}</p>
         </div>
       </div>
 
@@ -686,6 +705,7 @@ function createLabelForm(shipment: Shipment): LabelForm {
       shipment.receiver_postcode,
     ),
     tracking: shipment.tracking_number,
+    itemNature: inferItemNature(shipment),
     contents: shipment.package_type || "Parcel",
     description: shipment.notes || shipment.package_type || "Shipment",
     weight: shipment.weight || "",
@@ -719,6 +739,19 @@ function formatLabelDate(value: string) {
 function makeRouteCode(value: string) {
   const clean = value.replace(/[^A-Z0-9]/gi, "").toUpperCase();
   return `${clean.slice(-3).padStart(3, "R")}${clean.slice(0, 3).padEnd(3, "0")}`;
+}
+
+function inferItemNature(shipment: Shipment) {
+  const details = `${shipment.package_type} ${shipment.notes || ""}`.toLowerCase();
+  if (/phone|laptop|tablet|computer|electronic|device|battery/.test(details)) {
+    return "Electronics";
+  }
+  if (/document|letter|paper|certificate/.test(details)) return "Documents";
+  if (/cloth|shirt|dress|shoe|fashion|garment/.test(details)) return "Clothing";
+  if (/medical|medicine|pharmacy/.test(details)) return "Medical";
+  if (/food|fresh|perishable/.test(details)) return "Perishable";
+  if (/fragile|glass|ceramic/.test(details)) return "Fragile";
+  return "General Parcel";
 }
 
 function yesNo(value: boolean) {

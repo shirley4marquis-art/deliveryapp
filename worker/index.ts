@@ -24,7 +24,7 @@ interface ExecutionContext {
   passThroughOnException(): void;
 }
 
-export default {
+const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {
     const url = new URL(request.url);
     if (url.pathname === "/_vinext/image") {
@@ -46,3 +46,5 @@ export default {
     return handler.fetch(request, env, ctx);
   },
 };
+
+export default worker;

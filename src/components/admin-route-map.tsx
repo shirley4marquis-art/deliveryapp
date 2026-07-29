@@ -166,7 +166,6 @@ export function AdminRouteMap({
     };
   // currentLat / currentLng intentionally excluded — handled via initCurrentRef
   // to prevent the map re-initialising every time the draggable marker moves.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasPickup, hasDelivery, pickupLat, pickupLng, deliveryLat, deliveryLng]);
 
   if (!hasPickup || !hasDelivery) {

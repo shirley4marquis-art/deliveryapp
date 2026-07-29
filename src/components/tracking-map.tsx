@@ -37,7 +37,7 @@ function isCoord(v: number | null | undefined): v is number {
 function LiveTrackingPanel({ shipment }: { shipment: Shipment }) {
   const [progress, setProgress] = useState(0);
   const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(0);
 
   const geometry = shipment.route_geometry;
   const duration = shipment.route_duration_minutes ?? 0;
@@ -115,7 +115,7 @@ function LiveTrackingPanel({ shipment }: { shipment: Shipment }) {
 
       {pos && (
         <p className="mt-2 text-center text-xs text-slate-400">
-          Last position update: {new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(new Date())}
+          Last position update: {new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(new Date(now))}
         </p>
       )}
     </div>

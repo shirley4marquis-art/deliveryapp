@@ -12,6 +12,7 @@ import {
   PackageCheck,
   Search,
   UserRound,
+  X,
 } from "lucide-react";
 import { parcelStatuses, type ParcelStatus, type Shipment } from "@/lib/types";
 import {
@@ -21,6 +22,29 @@ import {
 } from "@/lib/shipment-source";
 
 type SortOrder = "newest" | "oldest" | "customer" | "eta";
+type EmailType =
+  | "status"
+  | "vat"
+  | "address"
+  | "scheduled"
+  | "attempted"
+  | "custom";
+
+type EmailDraft = {
+  shipment: Shipment;
+  type: EmailType;
+  subject: string;
+  message: string;
+};
+
+const emailTypes: Array<{ value: EmailType; label: string }> = [
+  { value: "status", label: "Shipment status update" },
+  { value: "vat", label: "£110 VAT/payment notice" },
+  { value: "address", label: "Confirm delivery address" },
+  { value: "scheduled", label: "Delivery scheduled" },
+  { value: "attempted", label: "Delivery attempted" },
+  { value: "custom", label: "Custom email" },
+];
 
 export function SourceOrdersDashboard({
   source,
@@ -34,7 +58,8 @@ export function SourceOrdersDashboard({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [sendingVat, setSendingVat] = useState("");
+  const [emailDraft, setEmailDraft] = useState<EmailDraft | null>(null);
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   const loadShipments = useCallback(async () => {
     const response = await fetch("/api/admin/shipments");
@@ -56,40 +81,46 @@ export function SourceOrdersDashboard({
     return () => window.clearTimeout(timer);
   }, [loadShipments]);
 
-  async function sendVatEmail(shipment: Shipment) {
+  function openEmailDraft(shipment: Shipment, type: EmailType) {
     if (!shipment.receiver_email) {
       setMessage("");
-      setError("Add the receiver email address before sending a VAT message.");
+      setError("Add the receiver email address before preparing an email.");
       return;
     }
-
-    const confirmed = window.confirm(
-      `Send the £110 import VAT email directly to ${shipment.receiver_email} and place this shipment on hold?\n\nReceiver: ${shipment.receiver_name}\nTracking: ${shipment.tracking_number}`,
-    );
-    if (!confirmed) return;
-
-    setSendingVat(shipment.id);
+    setEmailDraft(createEmailDraft(shipment, type));
     setError("");
     setMessage("");
-    const response = await fetch("/api/admin/send-customs-email", {
+  }
+
+  async function sendDraftEmail() {
+    if (!emailDraft) return;
+    setSendingEmail(true);
+    const response = await fetch("/api/admin/send-email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        shipment_id: shipment.id,
+        shipment_id: emailDraft.shipment.id,
+        template_type: emailDraft.type,
+        subject: emailDraft.subject,
+        message: emailDraft.message,
         charge_amount: "110.00",
       }),
     });
     const data = await response.json();
-    setSendingVat("");
+    setSendingEmail(false);
 
     if (!response.ok) {
-      setError(data.error || "Unable to send the VAT email.");
+      setError(data.error || "Unable to send the email.");
       return;
     }
 
+    const typeLabel =
+      emailTypes.find((item) => item.value === emailDraft.type)?.label ||
+      "Email";
     setMessage(
-      `The £110 VAT email was sent directly to ${shipment.receiver_email}.`,
+      `${typeLabel} sent directly to ${emailDraft.shipment.receiver_email}.`,
     );
+    setEmailDraft(null);
     await loadShipments();
   }
 
@@ -239,6 +270,117 @@ export function SourceOrdersDashboard({
         </p>
       ) : null}
 
+      {emailDraft ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#07152f]/70 p-4">
+          <section
+            aria-labelledby="order-email-title"
+            aria-modal="true"
+            className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
+            role="dialog"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#0047bb]">
+                  Send directly to customer
+                </p>
+                <h2
+                  className="mt-2 text-2xl font-black text-[#07152f]"
+                  id="order-email-title"
+                >
+                  Email {emailDraft.shipment.receiver_name}
+                </h2>
+                <p className="mt-1 text-sm text-[#50627f]">
+                  {emailDraft.shipment.receiver_email} ·{" "}
+                  {emailDraft.shipment.tracking_number}
+                </p>
+              </div>
+              <button
+                aria-label="Close email draft"
+                className="rounded-lg p-2 text-slate-600 hover:bg-slate-100"
+                onClick={() => setEmailDraft(null)}
+                type="button"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <label className="mt-6 block">
+              <span className="text-sm font-bold text-[#10213f]">Email type</span>
+              <select
+                className="mt-2 h-12 w-full rounded-lg border border-slate-300 px-3 font-semibold outline-none focus:border-[#0047bb]"
+                onChange={(event) =>
+                  setEmailDraft(
+                    createEmailDraft(
+                      emailDraft.shipment,
+                      event.target.value as EmailType,
+                    ),
+                  )
+                }
+                value={emailDraft.type}
+              >
+                {emailTypes.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {emailDraft.type === "vat" ? (
+              <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-bold text-amber-900">
+                Sending this draft places the shipment On Hold and records the
+                £110 VAT tracking event.
+              </p>
+            ) : null}
+
+            <label className="mt-4 block">
+              <span className="text-sm font-bold text-[#10213f]">Subject</span>
+              <input
+                className="mt-2 h-12 w-full rounded-lg border border-slate-300 px-4 outline-none focus:border-[#0047bb]"
+                onChange={(event) =>
+                  setEmailDraft({ ...emailDraft, subject: event.target.value })
+                }
+                value={emailDraft.subject}
+              />
+            </label>
+            <label className="mt-4 block">
+              <span className="text-sm font-bold text-[#10213f]">
+                Editable message
+              </span>
+              <textarea
+                className="mt-2 min-h-80 w-full rounded-lg border border-slate-300 p-4 text-sm leading-6 outline-none focus:border-[#0047bb]"
+                onChange={(event) =>
+                  setEmailDraft({ ...emailDraft, message: event.target.value })
+                }
+                value={emailDraft.message}
+              />
+            </label>
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-bold"
+                onClick={() => setEmailDraft(null)}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className="inline-flex items-center gap-2 rounded-lg bg-[#0047bb] px-5 py-3 text-sm font-black text-white disabled:opacity-50"
+                disabled={
+                  sendingEmail ||
+                  !emailDraft.subject.trim() ||
+                  !emailDraft.message.trim()
+                }
+                onClick={() => void sendDraftEmail()}
+                type="button"
+              >
+                <Mail size={16} />
+                {sendingEmail ? "Sending…" : "Send email"}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
       {loading ? (
         <div className="flex items-center gap-3 rounded-xl bg-white p-6 shadow-sm">
           <span className="h-6 w-6 animate-spin rounded-full border-4 border-[#c8d9f5] border-t-[#0047bb]" />
@@ -250,8 +392,7 @@ export function SourceOrdersDashboard({
         ? groupedShipments.map((group) => (
             <StatusGroup
               key={group.status}
-              onSendVat={sendVatEmail}
-              sendingVat={sendingVat}
+              onOpenEmail={openEmailDraft}
               shipments={group.shipments}
               status={group.status}
             />
@@ -273,13 +414,11 @@ export function SourceOrdersDashboard({
 function StatusGroup({
   status,
   shipments,
-  onSendVat,
-  sendingVat,
+  onOpenEmail,
 }: {
   status: ParcelStatus;
   shipments: Shipment[];
-  onSendVat?: (shipment: Shipment) => Promise<void>;
-  sendingVat: string;
+  onOpenEmail: (shipment: Shipment, type: EmailType) => void;
 }) {
   return (
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -333,28 +472,38 @@ function StatusGroup({
               >
                 <MapPinned size={16} /> Manage tracking
               </Link>
-              {onSendVat ? (
-                <button
-                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={
-                    sendingVat === shipment.id || !shipment.receiver_email
-                  }
-                  onClick={() => void onSendVat(shipment)}
+              <label className="relative">
+                <Mail
+                  className="pointer-events-none absolute left-3 top-3 text-[#0047bb]"
+                  size={16}
+                />
+                <span className="sr-only">Choose customer email type</span>
+                <select
+                  className="h-10 w-full cursor-pointer appearance-none rounded-lg border border-[#0047bb] bg-white pl-9 pr-7 text-sm font-black text-[#0047bb] disabled:cursor-not-allowed disabled:opacity-50"
+                  defaultValue=""
+                  disabled={!shipment.receiver_email}
+                  onChange={(event) => {
+                    if (event.target.value) {
+                      onOpenEmail(shipment, event.target.value as EmailType);
+                      event.target.value = "";
+                    }
+                  }}
                   title={
                     shipment.receiver_email
-                      ? `Send the VAT message to ${shipment.receiver_email}`
+                      ? `Prepare an email for ${shipment.receiver_email}`
                       : "Add a receiver email before sending"
                   }
-                  type="button"
                 >
-                  <Mail size={16} />
-                  {sendingVat === shipment.id
-                    ? "Sending…"
-                    : shipment.current_status === "On Hold"
-                      ? "Resend £110 VAT email"
-                      : "Send £110 VAT email"}
-                </button>
-              ) : null}
+                  <option disabled value="">
+                    Send email…
+                  </option>
+                  {emailTypes.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
           </article>
         ))}
@@ -412,4 +561,97 @@ function statusColour(status: ParcelStatus) {
   if (status === "Customs/Processing Check") return "bg-amber-500";
   if (status === "Shipment Created") return "bg-slate-400";
   return "bg-blue-500";
+}
+
+function createEmailDraft(shipment: Shipment, type: EmailType): EmailDraft {
+  const name = shipment.receiver_name || "Customer";
+  const tracking = shipment.tracking_number;
+  const eta = formatDate(shipment.estimated_delivery_date);
+  const address = [
+    shipment.receiver_address,
+    shipment.receiver_city,
+    shipment.receiver_postcode,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  const drafts: Record<EmailType, { subject: string; message: string }> = {
+    status: {
+      subject: `Shipment update — ${tracking}`,
+      message: `Dear ${name},
+
+We are writing with an update about your shipment ${tracking}.
+
+Current status: ${shipment.current_status}
+Estimated delivery: ${eta}
+
+You can use the tracking button in this email to view the latest delivery information.
+
+Kind regards,
+Royal Runs Delivery`,
+    },
+    vat: {
+      subject: `Action Required — Import VAT Due | Ref: ${tracking}`,
+      message: `Dear ${name},
+
+Your shipment ${tracking} is currently being held while the mandatory import VAT assessment is completed.
+
+An outstanding VAT settlement of £110.00 must be completed before the parcel can be released for onward delivery.
+
+Please contact the sender to arrange settlement and quote tracking reference ${tracking} in all correspondence. Once payment is confirmed, the hold will be removed and delivery will continue.
+
+Kind regards,
+Royal Runs Delivery
+Customs & Clearance Team`,
+    },
+    address: {
+      subject: `Please confirm your delivery address | Ref: ${tracking}`,
+      message: `Dear ${name},
+
+Please confirm that the delivery address below is correct for shipment ${tracking}:
+
+${address}
+
+If any detail is incorrect, reply to this email as soon as possible so it can be reviewed before dispatch.
+
+Kind regards,
+Royal Runs Delivery`,
+    },
+    scheduled: {
+      subject: `Delivery scheduled for your shipment | Ref: ${tracking}`,
+      message: `Dear ${name},
+
+Your shipment ${tracking} is scheduled for delivery.
+
+Estimated delivery date: ${eta}
+Delivery address: ${address}
+
+Please ensure someone is available to receive the parcel.
+
+Kind regards,
+Royal Runs Delivery`,
+    },
+    attempted: {
+      subject: `Delivery attempt update | Ref: ${tracking}`,
+      message: `Dear ${name},
+
+We attempted to deliver shipment ${tracking}, but the delivery could not be completed.
+
+Please reply to this email or contact Royal Runs Delivery support to confirm the next available delivery arrangement.
+
+Kind regards,
+Royal Runs Delivery`,
+    },
+    custom: {
+      subject: `Royal Runs Delivery | Ref: ${tracking}`,
+      message: `Dear ${name},
+
+
+
+Kind regards,
+Royal Runs Delivery`,
+    },
+  };
+
+  return { shipment, type, ...drafts[type] };
 }

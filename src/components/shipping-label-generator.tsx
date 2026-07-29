@@ -76,7 +76,7 @@ export function ShippingLabelGenerator({
 
   useEffect(() => {
     if (!form?.tracking) return;
-    const trackingUrl = `${window.location.origin}/track?tracking=${encodeURIComponent(form.tracking)}`;
+    const trackingUrl = `${window.location.origin}/track?q=${encodeURIComponent(form.tracking)}`;
     void QRCode.toDataURL(trackingUrl, {
       errorCorrectionLevel: "M",
       margin: 0,

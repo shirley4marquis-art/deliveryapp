@@ -542,6 +542,7 @@ Customs & Clearance Team`,
       | { sent: boolean; error?: string }
       | undefined;
     let uploadFailed = false;
+    let packageImageStored = true;
 
     if (shouldUploadBeforeRucoEmail && data.shipment?.id && newPackageImage) {
       const imageBody = new FormData();
@@ -559,14 +560,20 @@ Customs & Clearance Team`,
         );
       } else {
         confirmationEmail = uploadResult.confirmationEmail;
+        packageImageStored = uploadResult.imageStored !== false;
+        if (uploadResult.warning) {
+          setMessage(uploadResult.warning);
+        }
       }
     }
 
     if (!editingId && confirmationEmail) {
       if (confirmationEmail.sent) {
         setMessage(
-          shouldUploadBeforeRucoEmail
+          shouldUploadBeforeRucoEmail && packageImageStored
             ? "Ruco shipment created; its package photo was included in the confirmation email."
+            : shouldUploadBeforeRucoEmail
+              ? "Ruco shipment created; its package photo was attached to the confirmation email."
             : "Ruco shipment created and the details-confirmation email was sent.",
         );
       } else {

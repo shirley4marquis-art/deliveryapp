@@ -13,6 +13,7 @@ import {
   PackageCheck,
   Printer,
   Search,
+  Trash2,
   UserRound,
   X,
 } from "lucide-react";
@@ -22,31 +23,21 @@ import {
   sourceLabel,
   type ShipmentSource,
 } from "@/lib/shipment-source";
+import { CustomerEmailHistory } from "@/components/customer-email-history";
+import type { CustomerEmailLog } from "@/lib/types";
+import {
+  createEmailDraft as createCatalogEmailDraft,
+  emailTypes as customerEmailTypes,
+  type EmailDraft as CatalogEmailDraft,
+  type EmailType as CatalogEmailType,
+} from "@/lib/customer-email-templates";
 
 type SortOrder = "newest" | "oldest" | "customer" | "eta";
-type EmailType =
-  | "status"
-  | "vat"
-  | "address"
-  | "scheduled"
-  | "attempted"
-  | "custom";
+type EmailType = CatalogEmailType;
 
-type EmailDraft = {
-  shipment: Shipment;
-  type: EmailType;
-  subject: string;
-  message: string;
-};
+type EmailDraft = CatalogEmailDraft;
 
-const emailTypes: Array<{ value: EmailType; label: string }> = [
-  { value: "status", label: "Shipment status update" },
-  { value: "vat", label: "£110 VAT/payment notice" },
-  { value: "address", label: "Confirm delivery address" },
-  { value: "scheduled", label: "Delivery scheduled" },
-  { value: "attempted", label: "Delivery attempted" },
-  { value: "custom", label: "Custom email" },
-];
+const emailTypes = customerEmailTypes;
 
 export function SourceOrdersDashboard({
   source,
@@ -63,10 +54,18 @@ export function SourceOrdersDashboard({
   const [emailDraft, setEmailDraft] = useState<EmailDraft | null>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [uploadingImage, setUploadingImage] = useState("");
+  const [deletingShipment, setDeletingShipment] = useState("");
+  const [emailLogs, setEmailLogs] = useState<CustomerEmailLog[]>([]);
 
   const loadShipments = useCallback(async () => {
-    const response = await fetch("/api/admin/shipments");
-    const data = await response.json();
+    const [response, historyResponse] = await Promise.all([
+      fetch("/api/admin/shipments"),
+      fetch("/api/admin/email-history"),
+    ]);
+    const [data, historyData] = await Promise.all([
+      response.json(),
+      historyResponse.json(),
+    ]);
     setLoading(false);
     if (!response.ok) {
       setError(data.error || "Unable to load orders.");
@@ -77,6 +76,9 @@ export function SourceOrdersDashboard({
         (shipment) => getShipmentSource(shipment) === source,
       ),
     );
+    if (historyResponse.ok) {
+      setEmailLogs((historyData.logs || []) as CustomerEmailLog[]);
+    }
   }, [source]);
 
   useEffect(() => {
@@ -151,6 +153,33 @@ export function SourceOrdersDashboard({
       `Shipment image ${shipment.package_image_url ? "replaced" : "uploaded"} for ${shipment.tracking_number}.`,
     );
     await loadShipments();
+  }
+
+  async function deleteShipment(shipment: Shipment) {
+    const confirmed = window.confirm(
+      `Delete shipment ${shipment.tracking_number} for ${shipment.receiver_name}? This permanently removes its tracking history and email logs.`,
+    );
+    if (!confirmed) return;
+
+    setDeletingShipment(shipment.id);
+    setError("");
+    setMessage("");
+
+    const response = await fetch(`/api/admin/shipments/${shipment.id}`, {
+      method: "DELETE",
+    });
+    const data = await response.json();
+    setDeletingShipment("");
+
+    if (!response.ok) {
+      setError(data.error || "Unable to delete the shipment.");
+      return;
+    }
+
+    setShipments((current) =>
+      current.filter((item) => item.id !== shipment.id),
+    );
+    setMessage(`Shipment ${shipment.tracking_number} was deleted.`);
   }
 
   const visibleShipments = useMemo(() => {
@@ -422,7 +451,10 @@ export function SourceOrdersDashboard({
             <StatusGroup
               key={group.status}
               onOpenEmail={openEmailDraft}
+              onDelete={deleteShipment}
               onUploadImage={uploadPackageImage}
+              deletingShipment={deletingShipment}
+              emailLogs={emailLogs}
               shipments={group.shipments}
               status={group.status}
               uploadingImage={uploadingImage}
@@ -446,13 +478,19 @@ function StatusGroup({
   status,
   shipments,
   onOpenEmail,
+  onDelete,
   onUploadImage,
+  deletingShipment,
+  emailLogs,
   uploadingImage,
 }: {
   status: ParcelStatus;
   shipments: Shipment[];
   onOpenEmail: (shipment: Shipment, type: EmailType) => void;
+  onDelete: (shipment: Shipment) => Promise<void>;
   onUploadImage: (shipment: Shipment, image?: File) => Promise<void>;
+  deletingShipment: string;
+  emailLogs: CustomerEmailLog[];
   uploadingImage: string;
 }) {
   return (
@@ -576,6 +614,26 @@ function StatusGroup({
                   ))}
                 </select>
               </label>
+              <button
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-300 bg-red-50 px-4 py-2.5 text-sm font-black text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={deletingShipment === shipment.id}
+                onClick={() => void onDelete(shipment)}
+                type="button"
+              >
+                <Trash2 size={16} />
+                {deletingShipment === shipment.id
+                  ? "Deleting…"
+                  : "Delete shipment"}
+              </button>
+              <CustomerEmailHistory
+                logs={emailLogs.filter(
+                  (log) =>
+                    Boolean(shipment.receiver_email) &&
+                    log.receiver_email.trim().toLowerCase() ===
+                      shipment.receiver_email?.trim().toLowerCase(),
+                )}
+                status={shipment.current_status}
+              />
             </div>
           </article>
         ))}
@@ -636,6 +694,8 @@ function statusColour(status: ParcelStatus) {
 }
 
 function createEmailDraft(shipment: Shipment, type: EmailType): EmailDraft {
+  return createCatalogEmailDraft(shipment, type);
+  /* Legacy drafts retained in history; the catalogue now lives in customer-email-templates.ts.
   const name = shipment.receiver_name || "Customer";
   const tracking = shipment.tracking_number;
   const eta = formatDate(shipment.estimated_delivery_date);
@@ -726,4 +786,5 @@ Royal Runs Delivery`,
   };
 
   return { shipment, type, ...drafts[type] };
+  */
 }

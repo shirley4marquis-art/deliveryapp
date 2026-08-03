@@ -7,6 +7,7 @@ type SourceShipment = {
   order_source?: string | null;
   sender_name?: string | null;
   receiver_name?: string | null;
+  notes?: string | null;
 };
 
 export function getShipmentSource(shipment: SourceShipment): ShipmentSource {
@@ -21,6 +22,19 @@ export function getShipmentSource(shipment: SourceShipment): ShipmentSource {
   ) {
     return "one-connect";
   }
+  const notes = (shipment.notes || "").toLowerCase();
+  if (
+    notes.includes("imported from ruco supply") ||
+    notes.includes("telegram source: ruco")
+  ) {
+    return "ruco";
+  }
+  if (
+    notes.includes("imported from 1:1 connect") ||
+    notes.includes("telegram source: one-connect")
+  ) {
+    return "one-connect";
+  }
   return isRucoSupplyShipment(shipment) ? "ruco" : "one-connect";
 }
 
@@ -29,7 +43,7 @@ export function sourceLabel(source: ShipmentSource) {
 }
 
 export function sourceStorageValue(senderName: string) {
-  return senderName.trim().toLowerCase() === "ruco supply"
+  return ["ruco supply", "ruco"].includes(senderName.trim().toLowerCase())
     ? "ruco-supply"
     : senderName.trim().toLowerCase() === "1:1 connect"
       ? "1:1-connect"

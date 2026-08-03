@@ -7,6 +7,8 @@ import {
   ExternalLink,
   ImagePlus,
   Mail,
+  Pause,
+  Play,
   Plus,
   Printer,
   Save,
@@ -14,8 +16,11 @@ import {
   Upload,
 } from "lucide-react";
 import { AdminRouteMap } from "@/components/admin-route-map";
+import { CustomerEmailHistory } from "@/components/customer-email-history";
+import { ShipmentEmailAutomation } from "@/components/shipment-email-automation";
 import {
   parcelStatuses,
+  type CustomerEmailLog,
   type ParcelStatus,
   type Shipment,
   type TrackingEvent,
@@ -73,6 +78,7 @@ export function TrackingEditor({ shipmentId }: { shipmentId: string }) {
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [emailLogs, setEmailLogs] = useState<CustomerEmailLog[]>([]);
 
   const loadShipment = useCallback(async () => {
     const response = await fetch(`/api/admin/shipments/${shipmentId}`);
@@ -84,6 +90,17 @@ export function TrackingEditor({ shipmentId }: { shipmentId: string }) {
     const nextShipment = data.shipment as Shipment;
     setShipment(nextShipment);
     setForm(toShipmentForm(nextShipment));
+    if (nextShipment.receiver_email) {
+      const historyResponse = await fetch(
+        `/api/admin/email-history?email=${encodeURIComponent(nextShipment.receiver_email)}`,
+      );
+      const historyData = await historyResponse.json();
+      if (historyResponse.ok) {
+        setEmailLogs((historyData.logs || []) as CustomerEmailLog[]);
+      }
+    } else {
+      setEmailLogs([]);
+    }
   }, [shipmentId]);
 
   useEffect(() => {
@@ -244,6 +261,26 @@ export function TrackingEditor({ shipmentId }: { shipmentId: string }) {
     notify(`The £110 VAT email was sent directly to ${shipment.receiver_email}.`);
   }
 
+  async function controlLiveTracking(action: "pause" | "resume") {
+    setBusy("live-tracking");
+    notify("");
+    const response = await fetch(`/api/admin/shipments/${shipmentId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: `${action}-live-tracking` }),
+    });
+    const data = await response.json();
+    setBusy("");
+    if (!response.ok) {
+      notify(data.error || `Unable to ${action} live tracking.`, "error");
+      return;
+    }
+    const nextShipment = data.shipment as Shipment;
+    setShipment(nextShipment);
+    setForm(toShipmentForm(nextShipment));
+    notify(`Live tracking ${action === "pause" ? "paused" : "resumed"} at 25 km/h.`);
+  }
+
   if (!form || !shipment) {
     return (
       <main className="mx-auto max-w-7xl px-5 py-10 lg:px-8">
@@ -276,6 +313,29 @@ export function TrackingEditor({ shipmentId }: { shipmentId: string }) {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <button
+              className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-black text-white disabled:opacity-50 ${
+                shipment.live_tracking_enabled ? "bg-amber-600" : "bg-green-600"
+              }`}
+              disabled={busy === "live-tracking"}
+              onClick={() =>
+                void controlLiveTracking(
+                  shipment.live_tracking_enabled ? "pause" : "resume",
+                )
+              }
+              type="button"
+            >
+              {shipment.live_tracking_enabled ? (
+                <Pause size={16} />
+              ) : (
+                <Play size={16} />
+              )}
+              {busy === "live-tracking"
+                ? "Updating…"
+                : shipment.live_tracking_enabled
+                  ? "Pause live tracking"
+                  : "Resume at 25 km/h"}
+            </button>
             <Link
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#fff1cc] px-4 py-3 text-sm font-black text-[#07152f]"
               href={`/admin/labels/${shipment.id}`}
@@ -351,7 +411,9 @@ export function TrackingEditor({ shipmentId }: { shipmentId: string }) {
           <div className="mt-6 rounded-xl border border-[#c8d9f5] bg-[#f7faff] p-4">
             <h3 className="font-black text-[#07152f]">Route and current position</h3>
             <p className="mt-1 text-sm text-[#50627f]">
-              Drag the amber marker to change the parcel’s current location.
+              Live movement follows the sender-to-receiver route at 25 km/h.
+              Pause tracking, drag the amber marker to adjust the parcel, save,
+              then resume from the new position.
             </p>
             <div className="mt-4">
               <AdminRouteMap
@@ -370,6 +432,21 @@ export function TrackingEditor({ shipmentId }: { shipmentId: string }) {
         </form>
 
         <aside className="grid content-start gap-6">
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="text-xl font-black text-[#07152f]">
+              Customer communication
+            </h2>
+            <p className="mt-1 mb-4 text-sm text-[#50627f]">
+              Email activity for {shipment.receiver_email || "this customer"}
+              across all shipments.
+            </p>
+            <ShipmentEmailAutomation shipmentId={shipment.id} />
+            <CustomerEmailHistory
+              logs={emailLogs}
+              status={shipment.current_status}
+            />
+          </section>
+
           <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="p-5">
               <h2 className="flex items-center gap-2 text-xl font-black text-[#07152f]">

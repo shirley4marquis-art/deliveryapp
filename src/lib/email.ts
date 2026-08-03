@@ -4,7 +4,8 @@ const FROM = process.env.RESEND_FROM_EMAIL || "Royal Runs Delivery <office@royal
 const SITE_URL = process.env.SITE_URL || "https://royalruns.co.uk";
 const SUPPORT_EMAIL = "office@royalruns.co.uk";
 const REPLY_TO =
-  process.env.RESEND_REPLY_TO_EMAIL || "replies@oldiotop.resend.app";
+  process.env.RESEND_REPLY_TO_EMAIL ||
+  "Royal Runs Office <replies@oldiotop.resend.app>";
 
 export type EmailData = {
   receiverName: string;
@@ -17,6 +18,11 @@ export type EmailData = {
   estimatedDeliveryDate: string;
   shipmentId: string;
   packageImageUrl?: string | null;
+  packageImageAttachment?: {
+    content: Buffer;
+    filename: string;
+    contentType: string;
+  };
 };
 
 type StatusConfig = {
@@ -114,9 +120,11 @@ function formatDate(iso: string): string {
 
 function generateEmailHtml(data: EmailData, config: StatusConfig): string {
   const trackingLink = `${SITE_URL}/track?q=${encodeURIComponent(data.trackingNumber)}`;
-  const deliveryAddress = [data.receiverAddress, data.receiverCity, data.receiverPostcode]
-    .filter(Boolean)
-    .join(", ");
+  const deliveryAddress = formatAddress(
+    data.receiverAddress,
+    data.receiverCity,
+    data.receiverPostcode,
+  );
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -259,13 +267,11 @@ export type SendEmailResult = {
 export async function sendRucoShipmentReceivedEmail(
   data: EmailData,
 ): Promise<SendEmailResult> {
-  const address = [
+  const address = formatAddress(
     data.receiverAddress,
     data.receiverCity,
     data.receiverPostcode,
-  ]
-    .filter(Boolean)
-    .join(", ");
+  );
 
   return sendCustomEmail({
     receiverEmail: data.receiverEmail,
@@ -274,19 +280,22 @@ export async function sendRucoShipmentReceivedEmail(
     status: data.status,
     estimatedDeliveryDate: data.estimatedDeliveryDate,
     packageImageUrl: data.packageImageUrl,
+    packageImageAttachment: data.packageImageAttachment,
     subject: `Please confirm your delivery details | Ref: ${data.trackingNumber}`,
     message: `We have received your package from Ruco Supply and created your delivery with Royal Runs Delivery.
 
-Please check that the information below is correct:
+To help us prepare your shipment with the correct information, please reply to this email after checking the details below.
 
 Recipient name: ${data.receiverName}
 Delivery address: ${address}
 Tracking reference: ${data.trackingNumber}
 Delivery service: Your parcel is being prepared for onward delivery.
 
-You only need to reply to this email if the recipient name or delivery address is incorrect. If everything is correct, no further action is required.
+If everything is correct, simply reply to confirm that the delivery details are correct.
 
-We will contact you again when there is an important update about your shipment.`,
+If anything needs to be changed, please include the correct recipient name and full delivery address, including the postcode, in your reply.
+
+Once we hear from you, we can make sure your shipment continues using the right delivery information. You can reply directly to this email and our office team will receive your response.`,
   });
 }
 
@@ -299,6 +308,16 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#039;");
 }
 
+function formatAddress(address: string, city: string, postcode: string) {
+  const result = address.trim();
+  const additions = [city, postcode].filter(
+    (value) =>
+      value &&
+      !result.toLowerCase().includes(value.trim().toLowerCase()),
+  );
+  return [result, ...additions].filter(Boolean).join(", ");
+}
+
 export async function sendCustomEmail({
   receiverEmail,
   receiverName,
@@ -308,6 +327,7 @@ export async function sendCustomEmail({
   status,
   estimatedDeliveryDate,
   packageImageUrl,
+  packageImageAttachment,
 }: {
   receiverEmail: string;
   receiverName: string;
@@ -317,6 +337,11 @@ export async function sendCustomEmail({
   status: string;
   estimatedDeliveryDate: string;
   packageImageUrl?: string | null;
+  packageImageAttachment?: {
+    content: Buffer;
+    filename: string;
+    contentType: string;
+  };
 }): Promise<SendEmailResult> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return { success: false, error: "RESEND_API_KEY is not configured." };
@@ -359,11 +384,11 @@ export async function sendCustomEmail({
             </table>
 
             ${
-              packageImageUrl
+              packageImageUrl || packageImageAttachment
                 ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:28px">
               <tr><td>
                 <div style="margin-bottom:12px;color:#07152f;font-size:16px;font-weight:800">Package image recorded at collection</div>
-                <img src="${escapeHtml(packageImageUrl)}" alt="Collected package for ${escapeHtml(trackingNumber)}" style="display:block;width:100%;max-height:480px;object-fit:contain;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc" />
+                <img src="${packageImageUrl ? escapeHtml(packageImageUrl) : "cid:package-image"}" alt="Collected package for ${escapeHtml(trackingNumber)}" style="display:block;width:100%;max-height:480px;object-fit:contain;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc" />
               </td></tr>
             </table>`
                 : ""
@@ -398,6 +423,16 @@ export async function sendCustomEmail({
       replyTo: REPLY_TO,
       subject,
       html,
+      attachments: packageImageAttachment
+        ? [
+            {
+              content: packageImageAttachment.content,
+              filename: packageImageAttachment.filename,
+              contentType: packageImageAttachment.contentType,
+              contentId: "package-image",
+            },
+          ]
+        : undefined,
     });
     if (result.error) return { success: false, error: result.error.message || JSON.stringify(result.error) };
     return { success: true, emailId: result.data?.id };

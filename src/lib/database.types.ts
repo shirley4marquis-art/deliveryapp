@@ -165,6 +165,66 @@ export type Database = {
           },
         ];
       };
+      shipment_email_automation: {
+        Row: {
+          shipment_id: string;
+          enabled: boolean;
+          packaging_fee_paid: boolean;
+          vat_fee_paid: boolean;
+          seller_legal_name: string | null;
+          vat_registration_number: string | null;
+          vat_invoice_number: string | null;
+          payment_deadline: string | null;
+          payment_instructions: string | null;
+          delivery_time_window: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          shipment_id: string;
+          enabled?: boolean;
+          packaging_fee_paid?: boolean;
+          vat_fee_paid?: boolean;
+          seller_legal_name?: string | null;
+          vat_registration_number?: string | null;
+          vat_invoice_number?: string | null;
+          payment_deadline?: string | null;
+          payment_instructions?: string | null;
+          delivery_time_window?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["shipment_email_automation"]["Insert"]>;
+        Relationships: [];
+      };
+      shipment_automation_email_logs: {
+        Row: {
+          id: string;
+          shipment_id: string;
+          step_key: string;
+          scheduled_for: string;
+          state: "pending" | "deferred" | "blocked" | "sent" | "failed" | "skipped";
+          reason: string | null;
+          subject: string | null;
+          email_id: string | null;
+          last_checked_at: string;
+          sent_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          shipment_id: string;
+          step_key: string;
+          scheduled_for: string;
+          state: "pending" | "deferred" | "blocked" | "sent" | "failed" | "skipped";
+          reason?: string | null;
+          subject?: string | null;
+          email_id?: string | null;
+          last_checked_at?: string;
+          sent_at?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["shipment_automation_email_logs"]["Insert"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {

@@ -63,6 +63,50 @@ export async function POST(
     });
 
   if (uploadError) {
+    if (
+      isRucoAtCreation &&
+      shipment.receiver_email &&
+      uploadError.message.toLowerCase().includes("bucket not found")
+    ) {
+      const subject = `Please confirm your delivery details | Ref: ${shipment.tracking_number}`;
+      const emailResult = await sendRucoShipmentReceivedEmail({
+        receiverName: shipment.receiver_name,
+        receiverEmail: shipment.receiver_email,
+        receiverAddress: shipment.receiver_address,
+        receiverCity: shipment.receiver_city,
+        receiverPostcode: shipment.receiver_postcode,
+        trackingNumber: shipment.tracking_number,
+        status: shipment.current_status,
+        estimatedDeliveryDate: shipment.estimated_delivery_date,
+        shipmentId: shipment.id,
+        packageImageAttachment: {
+          content: Buffer.from(await image.arrayBuffer()),
+          filename: image.name || `package.${extension}`,
+          contentType: image.type,
+        },
+      });
+
+      await supabase.from("shipment_email_logs").insert({
+        shipment_id: shipment.id,
+        receiver_email: shipment.receiver_email,
+        status: "Ruco details confirmation",
+        subject,
+        sent_successfully: emailResult.success,
+        error_message: emailResult.error ?? null,
+      });
+
+      return NextResponse.json({
+        imageUrl: null,
+        imageStored: false,
+        warning:
+          "The storage bucket is unavailable, so the photo was attached to the confirmation email but was not saved to the shipment.",
+        confirmationEmail: {
+          sent: emailResult.success,
+          ...(emailResult.error ? { error: emailResult.error } : {}),
+        },
+      });
+    }
+
     return NextResponse.json({ error: uploadError.message }, { status: 500 });
   }
 
@@ -122,6 +166,7 @@ export async function POST(
 
   return NextResponse.json({
     imageUrl: publicUrl.publicUrl,
+    imageStored: true,
     confirmationEmail,
   });
 }

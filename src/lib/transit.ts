@@ -1,4 +1,5 @@
 export type RouteGeometry = [number, number][]; // [lat, lng] pairs
+export const LIVE_TRACKING_SPEED_KMH = 25;
 
 // Statuses that should trigger live movement
 export const MOVING_STATUSES = new Set(["In Transit", "Out for Delivery"]);
@@ -107,6 +108,35 @@ export function interpolatePosition(
 
   const last = geometry[geometry.length - 1];
   return { lat: last[0], lng: last[1] };
+}
+
+export function routeDurationAtSpeed(distanceKm: number): number {
+  return (distanceKm / LIVE_TRACKING_SPEED_KMH) * 60;
+}
+
+export function routeProgressAtPosition(
+  geometry: RouteGeometry,
+  position: { lat: number; lng: number },
+): number {
+  if (geometry.length < 2) return 0;
+  let totalDistance = 0;
+  const cumulative = [0];
+  for (let index = 1; index < geometry.length; index += 1) {
+    totalDistance += haversine(geometry[index - 1], geometry[index]);
+    cumulative.push(totalDistance);
+  }
+  if (!totalDistance) return 0;
+
+  let closestIndex = 0;
+  let closestDistance = Number.POSITIVE_INFINITY;
+  geometry.forEach((point, index) => {
+    const distance = haversine(point, [position.lat, position.lng]);
+    if (distance < closestDistance) {
+      closestDistance = distance;
+      closestIndex = index;
+    }
+  });
+  return Math.min(0.98, cumulative[closestIndex] / totalDistance);
 }
 
 // Calculate how far along the route the parcel should be right now (0–0.98)

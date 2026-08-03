@@ -23,6 +23,19 @@ export type TrackingEvent = {
   created_at?: string;
 };
 
+export type CustomerEmailLog = {
+  id: string;
+  shipment_id: string;
+  receiver_email: string;
+  status: string;
+  subject: string;
+  sent_successfully: boolean;
+  error_message: string | null;
+  sent_at: string;
+  tracking_number: string;
+  shipment_status: string;
+};
+
 export type Shipment = {
   id: string;
   tracking_number: string;

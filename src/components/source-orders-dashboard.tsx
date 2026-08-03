@@ -551,8 +551,7 @@ function StatusGroup({
               >
                 <Printer size={16} /> Create shipping label
               </Link>
-              {shipment.current_status === "Parcel Collected" ? (
-                <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-emerald-600 bg-emerald-50 px-4 py-2.5 text-sm font-black text-emerald-800">
+              <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-emerald-600 bg-emerald-50 px-4 py-2.5 text-sm font-black text-emerald-800">
                   <ImagePlus size={16} />
                   {uploadingImage === shipment.id
                     ? "Uploading…"
@@ -561,6 +560,7 @@ function StatusGroup({
                       : "Add shipment image"}
                   <input
                     accept="image/*"
+                    capture="environment"
                     className="sr-only"
                     disabled={uploadingImage === shipment.id}
                     onChange={(event) => {
@@ -570,8 +570,7 @@ function StatusGroup({
                     }}
                     type="file"
                   />
-                </label>
-              ) : null}
+              </label>
               {shipment.package_image_url ? (
                 <a
                   className="inline-flex items-center justify-center text-xs font-black text-[#0047bb] underline"

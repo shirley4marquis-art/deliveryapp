@@ -4,6 +4,11 @@ import { parsePastedOrder } from "@/lib/order-import";
 import { getSupabaseServiceRole } from "@/lib/supabase";
 import { generateTrackingNumber } from "@/lib/tracking";
 import type { Database } from "@/lib/database.types";
+import {
+  createTelegramAdminLink,
+  isTelegramChatAuthorized,
+  revokeTelegramChat,
+} from "@/lib/telegram-auth";
 
 export const runtime = "nodejs";
 
@@ -34,9 +39,20 @@ export async function POST(request: Request) {
   const message = update.message;
   if (!message) return NextResponse.json({ ok: true });
 
-  const chatId = String(message.chat.id);
-  if (!allowedChatIds().has(chatId)) {
-    await sendTelegramMessage(message.chat.id, "This bot is private.");
+  if (!(await isTelegramChatAuthorized(message.chat.id))) {
+    const token = createTelegramAdminLink(message.chat.id);
+    const link = `${siteUrl}/admin/telegram-link?token=${encodeURIComponent(token)}`;
+    await sendTelegramMessage(
+      message.chat.id,
+      [
+        "Royal Runs shipment bot",
+        "",
+        "This bot is public, but shipment tools require a Royal Runs admin account.",
+        "Sign in and authorize this chat using the secure link below. The link expires in 10 minutes.",
+        "",
+        link,
+      ].join("\n"),
+    );
     return NextResponse.json({ ok: true });
   }
 
@@ -58,6 +74,15 @@ async function handleMessage(message: TelegramMessage) {
   const text = (message.text || message.caption || "").trim();
   const command = text.split(/\s+/)[0]?.toLowerCase();
 
+  if (command === "/disconnect") {
+    await revokeTelegramChat(message.chat.id);
+    await sendTelegramMessage(
+      message.chat.id,
+      "This Telegram chat has been disconnected from Royal Runs admin access. Send /start to authorize it again.",
+    );
+    return;
+  }
+
   if (command === "/start" || command === "/help") {
     await sendTelegramMessage(
       message.chat.id,
@@ -73,6 +98,7 @@ async function handleMessage(message: TelegramMessage) {
         "4. Use /summary to review it.",
         "5. Use /sendemail when the first customer email is ready to go.",
         "Use /resendemail only when another copy is intentionally needed.",
+        "Use /disconnect to revoke this chat's admin access.",
         "",
         "The bot never sends the first email until you request it.",
       ].join("\n"),
@@ -704,15 +730,6 @@ async function setAwaitingStep(
   await updateShipment(shipment.id, {
     notes: notesWithAwaitingStep(shipment.notes, step),
   });
-}
-
-function allowedChatIds() {
-  return new Set(
-    requiredEnv("TELEGRAM_ALLOWED_CHAT_IDS")
-      .split(",")
-      .map((value) => value.trim())
-      .filter(Boolean),
-  );
 }
 
 function requiredEnv(name: string) {

@@ -13,35 +13,25 @@ const geistMono = Geist_Mono({
 });
 
 const siteUrl = "https://royalruns.co.uk";
-const ogImage = `${siteUrl}/images/royal-runs/courier-van-loading.jpg`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: "TBC | UK Parcel Delivery & Courier Service",
+  title: "Royal Runs | UK Parcel Delivery & Courier Service",
   description:
-    "TBC is a trusted UK courier and parcel delivery service. Fast, secure, and reliable same-day and next-day delivery across England, Scotland, Wales, and Northern Ireland. Track your parcel live.",
+    "Royal Runs is a trusted UK courier and parcel delivery service. Fast, secure, and reliable same-day and next-day delivery across England, Scotland, Wales, and Northern Ireland. Track your parcel live.",
   openGraph: {
     type: "website",
     url: siteUrl,
-    siteName: "TBC",
-    title: "TBC — Fast & Reliable UK Parcel Delivery",
+    siteName: "Royal Runs",
+    title: "Royal Runs — Fast & Reliable UK Parcel Delivery",
     description:
-      "Book shipments, track every scan, and manage deliveries across the UK with TBC — a professional courier platform built for speed and trust.",
-    images: [
-      {
-        url: ogImage,
-        width: 1200,
-        height: 630,
-        alt: "TBC courier loading parcels into a branded delivery van",
-      },
-    ],
+      "Book shipments, track every scan, and manage deliveries across the UK with Royal Runs — a professional courier platform built for speed and trust.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "TBC — Fast & Reliable UK Parcel Delivery",
+    title: "Royal Runs — Fast & Reliable UK Parcel Delivery",
     description:
-      "Book shipments, track every scan, and manage deliveries across the UK with TBC — a professional courier platform built for speed and trust.",
-    images: [ogImage],
+      "Book shipments, track every scan, and manage deliveries across the UK with Royal Runs — a professional courier platform built for speed and trust.",
   },
 };
 

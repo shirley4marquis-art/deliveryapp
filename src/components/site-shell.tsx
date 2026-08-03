@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { MessageCircle, PackageCheck, PhoneCall } from "lucide-react";
+import Image from "next/image";
+import { MessageCircle, PhoneCall } from "lucide-react";
 
 const navItems = [
   ["Home", "/"],
@@ -15,15 +16,13 @@ export function Header() {
     <header className="sticky top-0 z-40 border-b border-[#b9d5ff] bg-[#e8f3ff] text-[#07152f] shadow-sm">
       <div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-4 lg:flex-row lg:items-center lg:justify-between lg:px-8">
         <Link className="flex items-center gap-3" href="/">
-          <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#0047bb] text-white shadow-sm">
-            <PackageCheck aria-hidden="true" size={24} />
-          </span>
+          <Image alt="" aria-hidden="true" className="h-12 w-12" height={48} priority src="/images/royal-runs/logo-mark.svg" width={48} />
           <span>
             <span className="block text-xl font-black tracking-normal text-[#07152f]">
-              TBC
+              Royal Runs
             </span>
             <span className="block text-xs font-semibold uppercase tracking-[0.18em] text-[#0047bb]">
-              Royal Mail branch delivery service
+              UK parcel delivery service
             </span>
           </span>
         </Link>
@@ -49,10 +48,8 @@ export function Footer() {
       <div className="mx-auto grid max-w-7xl gap-6 px-5 py-10 md:grid-cols-[1.2fr_0.8fr_0.8fr] lg:px-8">
         <div>
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#0047bb]">
-              <PackageCheck aria-hidden="true" size={22} />
-            </span>
-            <span className="text-lg font-black">TBC</span>
+            <Image alt="" aria-hidden="true" className="h-10 w-10" height={40} src="/images/royal-runs/logo-mark.svg" width={40} />
+            <span className="text-lg font-black">Royal Runs</span>
           </div>
           <p className="mt-4 max-w-md text-sm leading-6 text-[#10213f]">
             Fast, secure and reliable UK parcel delivery for households,
@@ -89,7 +86,7 @@ export function Footer() {
 export function WhatsAppSupportButton() {
   return (
     <a
-      aria-label="Chat with TBC support on WhatsApp"
+      aria-label="Chat with Royal Runs support on WhatsApp"
       className="fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#25d366] text-white shadow-[0_14px_34px_rgba(7,21,47,0.28)] transition-transform hover:-translate-y-1 hover:scale-105 hover:bg-[#1ebe5d] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#07152f] md:bottom-6 md:right-6"
       href="https://wa.me/447346535643?text=Hello%20Royal%20Runs%2C%20I%20need%20support%20with%20a%20delivery."
       rel="noopener noreferrer"

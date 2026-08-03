@@ -165,6 +165,24 @@ export type Database = {
           },
         ];
       };
+      telegram_admin_chats: {
+        Row: {
+          chat_id: string;
+          admin_user_id: string;
+          admin_email: string;
+          authorized_at: string;
+          last_seen_at: string;
+        };
+        Insert: {
+          chat_id: string;
+          admin_user_id: string;
+          admin_email: string;
+          authorized_at?: string;
+          last_seen_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["telegram_admin_chats"]["Insert"]>;
+        Relationships: [];
+      };
       shipment_email_automation: {
         Row: {
           shipment_id: string;

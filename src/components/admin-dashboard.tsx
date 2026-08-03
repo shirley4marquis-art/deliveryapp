@@ -1351,29 +1351,28 @@ Customs & Clearance Team`,
                         <Mail size={15} /> Prepare £110 VAT draft
                       </button>
                     ) : null}
-                    {shipment.current_status === "Parcel Collected" ? (
-                      <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-green-400 bg-green-50 px-3 py-2 text-sm font-bold text-green-900">
-                        <PackagePlus size={15} />
-                        {uploadingPackageImage === shipment.id
-                          ? "Uploading image..."
-                          : shipment.package_image_url
-                            ? "Replace package image"
-                            : "Add package image"}
-                        <input
-                          accept="image/*"
-                          className="sr-only"
-                          disabled={uploadingPackageImage === shipment.id}
-                          onChange={(event) => {
-                            void uploadPackageImage(
-                              shipment,
-                              event.target.files?.[0],
-                            );
-                            event.target.value = "";
-                          }}
-                          type="file"
-                        />
-                      </label>
-                    ) : null}
+                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-green-400 bg-green-50 px-3 py-2 text-sm font-bold text-green-900">
+                      <PackagePlus size={15} />
+                      {uploadingPackageImage === shipment.id
+                        ? "Uploading image..."
+                        : shipment.package_image_url
+                          ? "Replace package image"
+                          : "Add package image"}
+                      <input
+                        accept="image/*"
+                        capture="environment"
+                        className="sr-only"
+                        disabled={uploadingPackageImage === shipment.id}
+                        onChange={(event) => {
+                          void uploadPackageImage(
+                            shipment,
+                            event.target.files?.[0],
+                          );
+                          event.target.value = "";
+                        }}
+                        type="file"
+                      />
+                    </label>
                     <button className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm font-bold text-red-700" onClick={() => deleteShipment(shipment.id)} type="button">
                       <Trash2 size={15} /> Delete
                     </button>

@@ -474,6 +474,7 @@ export function TrackingEditor({ shipmentId }: { shipmentId: string }) {
             <div className="grid gap-3 p-5">
               <input
                 accept="image/*"
+                capture="environment"
                 className="block w-full text-sm"
                 onChange={(event) => setImage(event.target.files?.[0] || null)}
                 type="file"

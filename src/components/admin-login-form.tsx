@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Loader2, Lock } from "lucide-react";
 
-export function AdminLoginForm() {
+export function AdminLoginForm({ nextPath = "/admin" }: { nextPath?: string }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -31,7 +31,7 @@ export function AdminLoginForm() {
       }
 
       // Hard redirect — ensures fresh session cookie is sent with the next request
-      window.location.href = "/admin";
+      window.location.href = nextPath.startsWith("/") ? nextPath : "/admin";
     } catch {
       setLoading(false);
       setError("Network error — please check your connection and try again.");
@@ -50,7 +50,7 @@ export function AdminLoginForm() {
         <div>
           <h2 className="text-xl font-black text-[#07152f]">Admin Login</h2>
           <p className="text-xs font-semibold text-[#50627f]">
-            TBC secure access
+            Royal Runs secure access
           </p>
         </div>
       </div>

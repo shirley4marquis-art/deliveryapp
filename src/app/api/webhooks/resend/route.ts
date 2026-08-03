@@ -134,28 +134,36 @@ async function notifyTelegramOfReply({
   shipmentId: string;
 }) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_ALLOWED_CHAT_IDS?.split(",")[0]?.trim();
-  if (!token || !chatId) return;
+  if (!token) return;
 
-  await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text: [
-        "Customer email reply received",
-        "",
-        `Customer: ${customerName}`,
-        `Email: ${customerEmail}`,
-        `Tracking: ${trackingNumber}`,
-        `Subject: ${subject}`,
-        preview ? `Reply: ${preview}` : "",
-        "",
-        `Review: ${process.env.SITE_URL || "https://royalruns.co.uk"}/admin/tracking/${shipmentId}`,
-      ]
-        .filter(Boolean)
-        .join("\n"),
-      disable_web_page_preview: true,
-    }),
-  });
+  const { data: authorizedChats } = await getSupabaseServiceRole()
+    .from("telegram_admin_chats")
+    .select("chat_id");
+  if (!authorizedChats?.length) return;
+
+  await Promise.all(
+    authorizedChats.map(({ chat_id: chatId }) =>
+      fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: [
+            "Customer email reply received",
+            "",
+            `Customer: ${customerName}`,
+            `Email: ${customerEmail}`,
+            `Tracking: ${trackingNumber}`,
+            `Subject: ${subject}`,
+            preview ? `Reply: ${preview}` : "",
+            "",
+            `Review: ${process.env.SITE_URL || "https://royalruns.co.uk"}/admin/tracking/${shipmentId}`,
+          ]
+            .filter(Boolean)
+            .join("\n"),
+          disable_web_page_preview: true,
+        }),
+      }),
+    ),
+  );
 }

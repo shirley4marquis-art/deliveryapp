@@ -560,7 +560,6 @@ function StatusGroup({
                       : "Add shipment image"}
                   <input
                     accept="image/*"
-                    capture="environment"
                     className="sr-only"
                     disabled={uploadingImage === shipment.id}
                     onChange={(event) => {

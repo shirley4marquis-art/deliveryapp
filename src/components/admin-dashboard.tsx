@@ -1360,7 +1360,6 @@ Customs & Clearance Team`,
                             : "Add package image"}
                         <input
                           accept="image/*"
-                          capture="environment"
                           className="sr-only"
                           disabled={uploadingPackageImage === shipment.id}
                           onChange={(event) => {

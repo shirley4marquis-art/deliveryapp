@@ -95,10 +95,18 @@ async function geocodeAddress(address: string) {
 type Toast = { message: string; type: "success" | "error" };
 
 function getOrderSourceTag(shipment: Shipment) {
-  if (getShipmentSource(shipment) === "ruco") {
+  const source = getShipmentSource(shipment);
+  if (source === "ruco") {
     return {
       label: "Ruco Supply",
       className: "border-yellow-300 bg-yellow-100 text-yellow-900",
+    };
+  }
+
+  if (source === "unclassified") {
+    return {
+      label: "Unclassified",
+      className: "border-slate-300 bg-slate-100 text-slate-800",
     };
   }
 
@@ -175,13 +183,12 @@ Customs & Clearance Team`,
     const imported = parsePastedOrder(pastedOrder);
 
     if (
-      imported.source === "Unknown sender" ||
       !imported.customerName ||
       !imported.customerEmail ||
       !imported.deliveryAddress
     ) {
       showToast(
-        "The order format was not recognised or required customer details are missing.",
+        "Add the customer's name, address, and email before generating the shipment.",
         "error",
       );
       return;
@@ -208,15 +215,15 @@ Customs & Clearance Team`,
       ...emptyShipment(),
       tracking_number: data.trackingNumber,
       sender_name: imported.source,
-      sender_address: "",
-      sender_city: "",
+      sender_address: "To be confirmed",
+      sender_city: "To be confirmed",
       receiver_name: imported.customerName,
       receiver_email: imported.customerEmail,
       receiver_address: imported.deliveryAddress,
       receiver_city: imported.deliveryCity,
       receiver_postcode: imported.deliveryPostcode,
       package_type: imported.items.join("; ") || "Customer order",
-      weight: "",
+      weight: "To be confirmed",
       delivery_service: /standard|royal mail/i.test(imported.courier)
         ? "Standard delivery (2–3 days)"
         : imported.courier,
@@ -944,8 +951,8 @@ Customs & Clearance Team`,
           <div>
             <h3 className="text-xl font-black">Paste a new order</h3>
             <p className="mt-1 text-sm text-[#50627f]">
-              Supports Ruco Supply and 1:1 Connect order formats. Customer,
-              address, items, courier and totals are inspected automatically.
+              Supports Ruco Supply, 1:1 Connect, or just a customer name,
+              address, and email. Orders without a clear source are kept unclassified.
             </p>
           </div>
           <span className="rounded-full bg-[#f3f7ff] px-3 py-1 text-xs font-bold text-[#0047bb]">

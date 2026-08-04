@@ -1,6 +1,6 @@
 import { isRucoSupplyShipment } from "./ruco";
 
-export const shipmentSources = ["ruco", "one-connect"] as const;
+export const shipmentSources = ["ruco", "one-connect", "unclassified"] as const;
 export type ShipmentSource = (typeof shipmentSources)[number];
 
 type SourceShipment = {
@@ -12,16 +12,23 @@ type SourceShipment = {
 
 export function getShipmentSource(shipment: SourceShipment): ShipmentSource {
   const storedSource = (shipment.order_source || "").trim().toLowerCase();
-  if (storedSource === "ruco-supply" || storedSource === "ruco supply") {
+  if (
+    storedSource === "ruco" ||
+    storedSource === "ruco-supply" ||
+    storedSource === "ruco supply"
+  ) {
     return "ruco";
   }
   if (
     storedSource === "mroneconnect.shop" ||
+    storedSource === "one-connect" ||
     storedSource === "1:1-connect" ||
     storedSource === "1:1 connect"
   ) {
     return "one-connect";
   }
+  const senderName = (shipment.sender_name || "").trim().toLowerCase();
+  if (senderName === "1:1 connect") return "one-connect";
   const notes = (shipment.notes || "").toLowerCase();
   if (
     notes.includes("imported from ruco supply") ||
@@ -35,11 +42,12 @@ export function getShipmentSource(shipment: SourceShipment): ShipmentSource {
   ) {
     return "one-connect";
   }
-  return isRucoSupplyShipment(shipment) ? "ruco" : "one-connect";
+  return isRucoSupplyShipment(shipment) ? "ruco" : "unclassified";
 }
 
 export function sourceLabel(source: ShipmentSource) {
-  return source === "ruco" ? "Ruco Supply" : "1:1 Connect";
+  if (source === "ruco") return "Ruco Supply";
+  return source === "one-connect" ? "1:1 Connect" : "Unclassified";
 }
 
 export function sourceStorageValue(senderName: string) {

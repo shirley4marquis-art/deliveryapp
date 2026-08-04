@@ -408,12 +408,12 @@ async function handleGuidedReply(
 async function createShipmentFromOrder(chatId: number, rawOrder: string) {
   const imported = parsePastedOrder(rawOrder);
   if (
-    imported.source === "Unknown sender" ||
     !imported.customerName ||
+    !imported.customerEmail ||
     !imported.deliveryAddress
   ) {
     throw new Error(
-      "I could not recognise a complete Ruco Supply or 1:1 Connect order.",
+      "I need a customer name, address, and email to create a shipment.",
     );
   }
 
@@ -441,7 +441,11 @@ async function createShipmentFromOrder(chatId: number, rawOrder: string) {
 
   const trackingNumber = generateTrackingNumber();
   const sourceValue =
-    imported.source === "Ruco Supply" ? "ruco" : "one-connect";
+    imported.source === "Ruco Supply"
+      ? "ruco"
+      : imported.source === "1:1 Connect"
+        ? "one-connect"
+        : null;
   const shipmentInput: Database["public"]["Tables"]["shipments"]["Insert"] = {
     tracking_number: trackingNumber,
     external_order_id: imported.orderReference || null,
@@ -459,7 +463,7 @@ async function createShipmentFromOrder(chatId: number, rawOrder: string) {
     delivery_service: imported.courier || "Standard delivery",
     current_status: "Shipment Created" as const,
     estimated_delivery_date: addDays(new Date(), 3),
-    notes: `${imported.notes}\nTelegram chat: ${chatId}\nTelegram source: ${sourceValue}`,
+    notes: `${imported.notes}\nTelegram chat: ${chatId}${sourceValue ? `\nTelegram source: ${sourceValue}` : ""}`,
   };
 
   let shipment = null;

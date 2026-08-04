@@ -234,7 +234,9 @@ export function SourceOrdersDashboard({
   const accent =
     source === "ruco"
       ? "from-amber-500 to-yellow-600"
-      : "from-emerald-600 to-green-700";
+      : source === "one-connect"
+        ? "from-emerald-600 to-green-700"
+        : "from-slate-600 to-slate-800";
 
   return (
     <main className="mx-auto grid max-w-7xl gap-6 px-5 py-8 lg:px-8">

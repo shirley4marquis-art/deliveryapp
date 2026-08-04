@@ -8,6 +8,7 @@ import {
   LogOut,
   PackagePlus,
   ShoppingBag,
+  Tags,
 } from "lucide-react";
 
 const panels = [
@@ -43,6 +44,17 @@ const panels = [
     accent: "border-green-200 bg-gradient-to-br from-green-50 to-white",
     iconClass: "bg-green-100 text-green-800",
     actionClass: "text-green-800",
+  },
+  {
+    title: "Unclassified",
+    description:
+      "View shipments created from label details that do not identify a known order source.",
+    href: "/admin/orders/unclassified",
+    action: "Open unclassified panel",
+    icon: Tags,
+    accent: "border-slate-300 bg-gradient-to-br from-slate-50 to-white",
+    iconClass: "bg-slate-200 text-slate-800",
+    actionClass: "text-slate-800",
   },
 ] as const;
 
@@ -87,7 +99,7 @@ export function AdminPortal() {
             Open one panel to manage only the orders relevant to that task.
           </p>
         </div>
-        <div className="mt-5 grid gap-5 lg:grid-cols-3">
+        <div className="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
           {panels.map((panel) => {
             const Icon = panel.icon;
             return (

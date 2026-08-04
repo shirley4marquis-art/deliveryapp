@@ -1,5 +1,5 @@
 export type ImportedOrder = {
-  source: "Ruco Supply" | "1:1 Connect" | "Unknown sender";
+  source: "Ruco Supply" | "1:1 Connect" | "Unclassified";
   orderReference: string;
   customerName: string;
   customerEmail: string;
@@ -17,6 +17,33 @@ export type ImportedOrder = {
 function valueAfterLabel(text: string, label: string) {
   const match = text.match(new RegExp(`^${label}\\s*:\\s*(.+)$`, "im"));
   return match?.[1]?.trim() || "";
+}
+
+function extractEmail(text: string) {
+  return text.match(/\b[^\s@]+@[^\s@]+\.[^\s@]+\b/i)?.[0]?.trim() || "";
+}
+
+function extractGenericAddress(text: string) {
+  const lines = text.split(/\r?\n/).map((line) => line.trim());
+  const addressIndex = lines.findIndex((line) => /^(?:delivery\s+)?address\s*:/i.test(line));
+
+  if (addressIndex >= 0) {
+    const addressLines = [
+      lines[addressIndex].replace(/^(?:delivery\s+)?address\s*:\s*/i, ""),
+    ];
+    for (let index = addressIndex + 1; index < lines.length; index += 1) {
+      const line = lines[index];
+      if (/^(?:name|email|e-mail|phone|telephone)\s*:/i.test(line)) break;
+      if (line) addressLines.push(line);
+    }
+    return addressLines.filter(Boolean).join(", ");
+  }
+
+  const emailIndex = lines.findIndex((line) => /\b[^\s@]+@[^\s@]+\.[^\s@]+\b/i.test(line));
+  if (emailIndex > 1) {
+    return lines.slice(1, emailIndex).filter(Boolean).join(", ");
+  }
+  return "";
 }
 
 function extractPostcode(text: string) {
@@ -64,7 +91,7 @@ export function parsePastedOrder(raw: string): ImportedOrder {
     ? "Ruco Supply"
     : isConnect
       ? "1:1 Connect"
-      : "Unknown sender";
+      : "Unclassified";
 
   const deliveryLines = isRuco
     ? linesBetween(text, /^Delivery Address$/i, /^Order Items$/i)
@@ -72,7 +99,7 @@ export function parsePastedOrder(raw: string): ImportedOrder {
         .map((line) => line.replace(/^Address\s*\/\s*Locker:\s*/i, ""))
         .filter((line) => !/^Carrier:/i.test(line));
 
-  const deliveryAddress = deliveryLines.join(", ");
+  const deliveryAddress = deliveryLines.join(", ") || extractGenericAddress(text);
   const postcode = extractPostcode(deliveryAddress);
   const addressWithoutPostcode = deliveryAddress.replace(postcode, "").trim();
   const addressParts = addressWithoutPostcode
@@ -88,8 +115,15 @@ export function parsePastedOrder(raw: string): ImportedOrder {
     valueAfterLabel(text, isRuco ? "Final total" : "Order Total") ||
     valueAfterLabel(text, "Total");
   const orderReference = valueAfterLabel(text, "Order reference");
-  const customerName = valueAfterLabel(text, "Name");
-  const customerEmail = valueAfterLabel(text, "Email");
+  const customerName =
+    valueAfterLabel(text, "Name") ||
+    (!isRuco && !isConnect
+      ? text
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .find((line) => line && !/:/.test(line) && !/@/.test(line)) || ""
+      : "");
+  const customerEmail = valueAfterLabel(text, "Email") || extractEmail(text);
   const customerPhone = valueAfterLabel(text, "Phone");
   const courier =
     valueAfterLabel(text, isRuco ? "Courier" : "Carrier") ||

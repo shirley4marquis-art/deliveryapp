@@ -9,9 +9,21 @@ import {
   PackagePlus,
   ShoppingBag,
   Tags,
+  ReceiptText,
 } from "lucide-react";
 
 const panels = [
+  {
+    title: "Receipt printer",
+    description:
+      "Turn pasted Ruco invoices into verified 80 mm thermal purchase receipts.",
+    href: "/admin/receipts",
+    action: "Create receipt",
+    icon: ReceiptText,
+    accent: "border-violet-200 bg-gradient-to-br from-violet-50 to-white",
+    iconClass: "bg-violet-100 text-violet-800",
+    actionClass: "text-violet-800",
+  },
   {
     title: "New orders",
     description:
@@ -99,7 +111,7 @@ export function AdminPortal() {
             Open one panel to manage only the orders relevant to that task.
           </p>
         </div>
-        <div className="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-5">
           {panels.map((panel) => {
             const Icon = panel.icon;
             return (

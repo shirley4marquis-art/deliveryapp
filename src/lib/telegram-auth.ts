@@ -40,8 +40,35 @@ export async function isTelegramChatAuthorized(chatId: number) {
     .select("chat_id")
     .eq("chat_id", String(chatId))
     .maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) {
+    // Keep existing private bots operational while the admin-chat migration is
+    // being rolled out. Never fail open: only explicitly configured chat IDs
+    // are accepted by this compatibility path.
+    if (isMissingTelegramAdminChatsTable(error.message)) {
+      return configuredTelegramChatIds().has(String(chatId));
+    }
+    throw new Error(error.message);
+  }
   return Boolean(data);
+}
+
+function configuredTelegramChatIds() {
+  return new Set(
+    (process.env.TELEGRAM_ALLOWED_CHAT_IDS || "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean),
+  );
+}
+
+function isMissingTelegramAdminChatsTable(message: string) {
+  const normalised = message.toLowerCase();
+  return (
+    normalised.includes("telegram_admin_chats") &&
+    (normalised.includes("schema cache") ||
+      normalised.includes("could not find") ||
+      normalised.includes("does not exist"))
+  );
 }
 
 export async function authorizeTelegramChat({

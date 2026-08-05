@@ -12,7 +12,7 @@ import QRCode from "qrcode";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Shipment } from "@/lib/types";
 
-type Carrier = "fedex" | "royal-mail";
+type Carrier = "fedex" | "royal-mail" | "inpost";
 
 type LabelForm = {
   carrier: Carrier;
@@ -160,12 +160,17 @@ export function ShippingLabelGenerator({
                     ...form,
                     carrier,
                     service:
-                      carrier === "fedex" ? "Express Saver" : "Tracked 24",
+                      carrier === "fedex"
+                        ? "Express Saver"
+                        : carrier === "inpost"
+                          ? "InPost Locker"
+                          : "Tracked 24",
                   });
                 }}
                 options={[
                   ["fedex", "FedEx"],
                   ["royal-mail", "Royal Mail"],
+                  ["inpost", "InPost"],
                 ]}
                 value={form.carrier}
               />
@@ -179,7 +184,13 @@ export function ShippingLabelGenerator({
                         ["International Priority", "International Priority"],
                         ["International Economy", "International Economy"],
                       ]
-                    : [
+                    : form.carrier === "inpost"
+                      ? [
+                          ["InPost Locker", "InPost Locker"],
+                          ["InPost Shop", "InPost Shop"],
+                          ["InPost Home Delivery", "InPost Home Delivery"],
+                        ]
+                      : [
                         ["Tracked 24", "Tracked 24"],
                         ["Tracked 48", "Tracked 48"],
                         ["Special Delivery", "Special Delivery"],
@@ -192,7 +203,7 @@ export function ShippingLabelGenerator({
                 onChange={(value) => setField("tracking", value.toUpperCase())}
                 value={form.tracking}
               />
-              {form.carrier === "fedex" ? (
+              {form.carrier === "fedex" || form.carrier === "inpost" ? (
                 <TextAreaField
                   label="From (shipper)"
                   onChange={(value) => setField("sender", value)}
@@ -227,7 +238,7 @@ export function ShippingLabelGenerator({
                     value={form.weight}
                   />
                 </>
-              ) : (
+              ) : form.carrier === "fedex" ? (
                 <div className="grid grid-cols-2 gap-3">
                   <TextField
                     label="Contents"
@@ -240,14 +251,18 @@ export function ShippingLabelGenerator({
                     value={form.weight}
                   />
                 </div>
-              )}
+              ) : null}
             </div>
           </aside>
 
           <section className="preview-shell overflow-auto rounded-2xl border border-slate-200 bg-slate-200 p-4 shadow-inner md:p-8">
             <div
               className={`shipping-label mx-auto bg-white text-black ${
-                form.carrier === "fedex" ? "fedex-label" : "royal-mail-label"
+                form.carrier === "fedex"
+                  ? "fedex-label"
+                  : form.carrier === "inpost"
+                    ? "inpost-label"
+                    : "royal-mail-label"
               }`}
             >
               {form.carrier === "fedex" ? (
@@ -255,6 +270,13 @@ export function ShippingLabelGenerator({
                   barcodeRef={barcodeRef}
                   form={form}
                   shipment={shipment}
+                />
+              ) : form.carrier === "inpost" ? (
+                <InPostLabel
+                  barcodeRef={barcodeRef}
+                  form={form}
+                  qrCode={qrCode}
+                  routeCode={routeCode}
                 />
               ) : (
                 <RoyalMailLabel
@@ -293,6 +315,10 @@ export function ShippingLabelGenerator({
           min-height: 297mm;
           width: 210mm;
         }
+        .inpost-label {
+          min-height: 297mm;
+          width: 210mm;
+        }
         .shipping-label * {
           box-sizing: border-box;
           print-color-adjust: exact;
@@ -310,6 +336,10 @@ export function ShippingLabelGenerator({
             size: A4 portrait;
           }
           @page royalmail {
+            margin: 0;
+            size: A4 portrait;
+          }
+          @page inpost {
             margin: 0;
             size: A4 portrait;
           }
@@ -342,6 +372,11 @@ export function ShippingLabelGenerator({
             page: royalmail;
             width: 210mm;
           }
+          .inpost-label {
+            min-height: 297mm;
+            page: inpost;
+            width: 210mm;
+          }
           .no-print,
           .preview-shell {
             border: 0 !important;
@@ -351,6 +386,73 @@ export function ShippingLabelGenerator({
         }
       `}</style>
     </>
+  );
+}
+
+function InPostLabel({
+  barcodeRef,
+  form,
+  qrCode,
+  routeCode,
+}: {
+  barcodeRef: React.RefObject<SVGSVGElement | null>;
+  form: LabelForm;
+  qrCode: string;
+  routeCode: string;
+}) {
+  const recipientLines = form.recipient.split("\n").filter(Boolean);
+  const recipientName = recipientLines[0] || "Recipient";
+  const recipientAddress = recipientLines.slice(1, -1).join(" ");
+  const postcode = recipientLines.at(-1) || routeCode;
+  const locationCode = routeCode.slice(0, 3);
+  const parcelId = form.tracking.replace(/\s/g, "");
+
+  return (
+    <article className="min-h-[297mm] border-[3px] border-[#303030] text-[#333]">
+      <div className="grid min-h-[57mm] grid-cols-[31%_41%_28%] border-b-[3px] border-[#303030]">
+        <div className="flex flex-col justify-between p-6">
+          <p className="text-lg uppercase leading-tight">Service<br />location</p>
+          <p className="text-5xl font-medium tracking-[0.12em]">{locationCode}</p>
+          <p className="text-lg">PID: {parcelId.slice(-6) || "000000"}</p>
+        </div>
+        <div className="flex flex-col items-center justify-center border-x-[3px] border-[#303030] p-5 text-center">
+          <div className="flex items-center gap-3">
+            <span className="text-7xl font-light leading-none text-[#ffd100]">☀</span>
+            <span className="text-6xl font-bold tracking-[-0.06em]">InPost</span>
+          </div>
+          <p className="mt-1 text-lg text-[#666]">out of the box</p>
+        </div>
+        <div className="p-6 text-center">
+          <p className="text-left text-lg">Post Code:</p>
+          <p className="mt-5 text-5xl font-light tracking-[0.08em]">{postcode}</p>
+        </div>
+      </div>
+
+      <div className="grid min-h-[170mm] grid-cols-[34%_66%] border-b-[3px] border-[#303030] p-7">
+        <div className="flex min-w-0 items-center justify-center pr-7">
+          <div className="flex items-center gap-5">
+            <p className="[writing-mode:vertical-rl] rotate-180 font-mono text-xl tracking-[0.08em]">{parcelId}</p>
+            <svg className="max-h-[145mm] w-[48mm] rotate-90" ref={barcodeRef} />
+          </div>
+        </div>
+        <div className="flex flex-col justify-center pl-5 text-lg">
+          <p className="text-[#666]">From:</p>
+          <p className="mt-1 whitespace-pre-line">{form.sender}</p>
+          <p className="mt-10 text-[#666]">To:</p>
+          <p className="mt-1 text-2xl">{recipientName}</p>
+          <p className="mt-5 text-4xl tracking-[0.08em]">{postcode}</p>
+          {recipientAddress ? <p className="mt-3 text-[#777]">{recipientAddress}</p> : null}
+          <div className="mt-14 flex items-end justify-between gap-6">
+            <p className="border border-[#555] px-8 py-3 text-xl uppercase">{recipientName}</p>
+            {qrCode ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img alt="InPost tracking QR code" className="h-[42mm] w-[42mm]" src={qrCode} />
+            ) : null}
+          </div>
+        </div>
+      </div>
+      <p className="px-6 py-2 text-base text-[#666]">inpost.co.uk</p>
+    </article>
   );
 }
 
@@ -592,16 +694,20 @@ function SelectField({
 }
 
 function createLabelForm(shipment: Shipment): LabelForm {
-  const carrier: Carrier = /royal mail|tracked|special delivery/i.test(
-    shipment.delivery_service,
-  )
-    ? "royal-mail"
-    : "fedex";
+  const carrier: Carrier = /inpost/i.test(shipment.delivery_service)
+    ? "inpost"
+    : /royal mail|tracked|special delivery/i.test(shipment.delivery_service)
+      ? "royal-mail"
+      : "fedex";
   return {
     carrier,
     service:
       shipment.delivery_service ||
-      (carrier === "royal-mail" ? "Tracked 24" : "Express Saver"),
+      (carrier === "royal-mail"
+        ? "Tracked 24"
+        : carrier === "inpost"
+          ? "InPost Locker"
+          : "Express Saver"),
     sender: formatAddress(
       shipment.sender_name,
       shipment.sender_address,

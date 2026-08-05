@@ -23,6 +23,11 @@ type TelegramMessage = {
 type TelegramUpdate = {
   update_id: number;
   message?: TelegramMessage;
+  edited_message?: TelegramMessage;
+  channel_post?: TelegramMessage;
+  edited_channel_post?: TelegramMessage;
+  business_message?: TelegramMessage;
+  edited_business_message?: TelegramMessage;
 };
 
 const siteUrl = process.env.SITE_URL || "https://royalruns.co.uk";
@@ -36,8 +41,20 @@ export async function POST(request: Request) {
   }
 
   const update = (await request.json().catch(() => ({}))) as TelegramUpdate;
-  const message = update.message;
-  if (!message) return NextResponse.json({ ok: true });
+  const message =
+    update.message ||
+    update.edited_message ||
+    update.channel_post ||
+    update.edited_channel_post ||
+    update.business_message ||
+    update.edited_business_message;
+  if (!message) {
+    console.info("Ignored Telegram update", {
+      updateId: update.update_id,
+      kinds: Object.keys(update).filter((key) => key !== "update_id"),
+    });
+    return NextResponse.json({ ok: true });
+  }
 
   if (!(await isTelegramChatAuthorized(message.chat.id))) {
     const token = createTelegramAdminLink(message.chat.id);
@@ -97,6 +114,7 @@ async function handleMessage(message: TelegramMessage) {
         "/service UK Standard Delivery",
         "4. Use /summary to review it.",
         "5. Use /sendemail when the first customer email is ready to go.",
+        "Use /testemail you@example.com to send a safe test copy first.",
         "Use /resendemail only when another copy is intentionally needed.",
         "Use /disconnect to revoke this chat's admin access.",
         "",
@@ -156,35 +174,47 @@ async function handleMessage(message: TelegramMessage) {
     return;
   }
 
-  if (command === "/sendemail" || command === "/resendemail") {
+  if (
+    command === "/sendemail" ||
+    command === "/resendemail" ||
+    command === "/testemail"
+  ) {
     const shipment = await latestTelegramShipment(message.chat.id);
-    if (!shipment.receiver_email) {
+    const isTest = command === "/testemail";
+    const testEmail = isTest ? text.slice(command.length).trim() : "";
+    if (isTest && !isEmailAddress(testEmail)) {
+      throw new Error("Use /testemail followed by a valid test email address.");
+    }
+    const targetEmail = isTest ? testEmail : shipment.receiver_email;
+    if (!targetEmail) {
       throw new Error("The latest shipment has no customer email address.");
     }
-    const { data: previousEmail } = await getSupabaseServiceRole()
-      .from("shipment_email_logs")
-      .select("sent_at")
-      .eq("shipment_id", shipment.id)
-      .eq("status", "Ruco details confirmation")
-      .eq("sent_successfully", true)
-      .order("sent_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (previousEmail && command !== "/resendemail") {
-      await sendTelegramMessage(
-        message.chat.id,
-        [
-          `The confirmation email for ${shipment.tracking_number} was already sent.`,
-          `Sent: ${new Date(previousEmail.sent_at).toLocaleString("en-GB")}`,
-          "",
-          "Use /resendemail only if you intentionally want to send another copy.",
-        ].join("\n"),
-      );
-      return;
+    if (!isTest) {
+      const { data: previousEmail } = await getSupabaseServiceRole()
+        .from("shipment_email_logs")
+        .select("sent_at")
+        .eq("shipment_id", shipment.id)
+        .eq("status", "Ruco details confirmation")
+        .eq("sent_successfully", true)
+        .order("sent_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (previousEmail && command !== "/resendemail") {
+        await sendTelegramMessage(
+          message.chat.id,
+          [
+            `The confirmation email for ${shipment.tracking_number} was already sent.`,
+            `Sent: ${new Date(previousEmail.sent_at).toLocaleString("en-GB")}`,
+            "",
+            "Use /resendemail only if you intentionally want to send another copy.",
+          ].join("\n"),
+        );
+        return;
+      }
     }
     const result = await sendRucoShipmentReceivedEmail({
       receiverName: shipment.receiver_name,
-      receiverEmail: shipment.receiver_email,
+      receiverEmail: targetEmail,
       receiverAddress: shipment.receiver_address,
       receiverCity: shipment.receiver_city,
       receiverPostcode: shipment.receiver_postcode,
@@ -197,8 +227,10 @@ async function handleMessage(message: TelegramMessage) {
     });
     await getSupabaseServiceRole().from("shipment_email_logs").insert({
       shipment_id: shipment.id,
-      receiver_email: shipment.receiver_email,
-      status: "Ruco details confirmation",
+      receiver_email: targetEmail,
+      status: isTest
+        ? "Ruco details confirmation (test)"
+        : "Ruco details confirmation",
       subject: `Please confirm your delivery details | Ref: ${shipment.tracking_number}`,
       sent_successfully: result.success,
       error_message: result.error ?? null,
@@ -206,7 +238,7 @@ async function handleMessage(message: TelegramMessage) {
     if (!result.success) throw new Error(result.error || "Email send failed.");
     await sendTelegramMessage(
       message.chat.id,
-      `Confirmation email sent to ${shipment.receiver_email} for ${shipment.tracking_number}.`,
+      `${isTest ? "Test confirmation" : "Confirmation"} email sent to ${targetEmail} for ${shipment.tracking_number}.${isTest ? " The real customer has not been emailed." : ""}`,
     );
     return;
   }
@@ -564,22 +596,16 @@ async function saveTelegramPhoto(
   const extension = filePath.split(".").at(-1)?.toLowerCase() || "jpg";
   const objectPath = `${shipmentId}/telegram-${messageId}.${extension}`;
   const supabase = getSupabaseServiceRole();
-
-  const { error: bucketError } = await supabase.storage.createBucket(
-    "package-images",
-    { public: true, fileSizeLimit: 10 * 1024 * 1024 },
-  );
-  if (
-    bucketError &&
-    !bucketError.message.toLowerCase().includes("already exists")
-  ) {
-    throw new Error(bucketError.message);
-  }
+  const responseContentType = imageResponse.headers.get("content-type");
+  const contentType =
+    responseContentType && responseContentType.startsWith("image/")
+      ? responseContentType
+      : imageContentType(extension);
 
   const { error: uploadError } = await supabase.storage
     .from("package-images")
     .upload(objectPath, imageBytes, {
-      contentType: imageResponse.headers.get("content-type") || "image/jpeg",
+      contentType,
       upsert: true,
     });
   if (uploadError) throw new Error(uploadError.message);
@@ -740,6 +766,22 @@ function requiredEnv(name: string) {
   const value = process.env[name];
   if (!value) throw new Error(`Missing environment variable: ${name}`);
   return value;
+}
+
+function isEmailAddress(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function imageContentType(extension: string) {
+  const contentTypes: Record<string, string> = {
+    gif: "image/gif",
+    heic: "image/heic",
+    jpeg: "image/jpeg",
+    jpg: "image/jpeg",
+    png: "image/png",
+    webp: "image/webp",
+  };
+  return contentTypes[extension] || "image/jpeg";
 }
 
 function addDays(date: Date, days: number) {

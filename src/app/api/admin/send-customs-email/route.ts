@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { getAuthenticatedAdmin } from "@/lib/admin-auth";
 import { getSupabaseForUser } from "@/lib/supabase";
 import { sendCustomsEmail } from "@/lib/email";
-import { isRucoSupplyShipment } from "@/lib/ruco";
 
 export async function POST(request: Request) {
   const admin = await getAuthenticatedAdmin();
@@ -31,13 +30,6 @@ export async function POST(request: Request) {
 
   if (fetchError || !shipment) {
     return NextResponse.json({ error: "Shipment not found." }, { status: 404 });
-  }
-
-  if (!isRucoSupplyShipment(shipment)) {
-    return NextResponse.json(
-      { error: "This action is only available for Ruco Supply shipments." },
-      { status: 400 },
-    );
   }
 
   const receiverEmail = (shipment as Record<string, unknown>).receiver_email as string | null;

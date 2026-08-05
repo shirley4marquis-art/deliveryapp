@@ -45,8 +45,10 @@ export function TrackParcel({
     const tracking = normaliseTrackingNumber(initialTrackingNumber);
     if (!tracking) return;
     trackingRef.current = tracking;
-    void fetchShipment(tracking);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    const id = window.setTimeout(() => {
+      void fetchShipment(tracking);
+    }, 0);
+    return () => window.clearTimeout(id);
   }, [initialTrackingNumber]);
 
   // Poll every 30s when status is actively moving to catch admin status changes

@@ -19,7 +19,7 @@ export function isRucoSupplyShipment(shipment: {
   sender_name?: string | null;
 }) {
   return (
-    normalise(shipment.sender_name) === "ruco supply" ||
+    ["ruco supply", "ruco"].includes(normalise(shipment.sender_name)) ||
     isRucoSupplyCustomer(shipment.receiver_name)
   );
 }

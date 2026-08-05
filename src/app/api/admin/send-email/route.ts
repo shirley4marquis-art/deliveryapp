@@ -13,6 +13,7 @@ export async function POST(request: Request) {
   const shipmentId = String(body.shipment_id || "").trim();
   const customSubject = String(body.subject || "").trim();
   const customMessage = String(body.message || "").trim();
+  const templateType = String(body.template_type || "").trim();
 
   if (!shipmentId) {
     return NextResponse.json({ error: "shipment_id is required." }, { status: 400 });
@@ -57,6 +58,36 @@ export async function POST(request: Request) {
       { error: "Both subject and message are required for a custom email." },
       { status: 400 },
     );
+  }
+
+  if (templateType === "vat") {
+    const chargeAmount = String(body.charge_amount || "110.00").trim();
+    if (shipment.current_status !== "On Hold") {
+      const { error: updateError } = await supabase
+        .from("shipments")
+        .update({
+          customs_charge_amount: chargeAmount,
+          current_status: "On Hold",
+          live_tracking_enabled: false,
+        })
+        .eq("id", shipmentId);
+
+      if (updateError) {
+        return NextResponse.json({ error: updateError.message }, { status: 500 });
+      }
+
+      const { error: eventError } = await supabase.from("tracking_events").insert({
+        shipment_id: shipmentId,
+        event_time: new Date().toISOString(),
+        location: shipment.receiver_city || "Customs clearance",
+        status: "On Hold",
+        description: `Shipment held pending settlement of £${chargeAmount} import VAT.`,
+      });
+
+      if (eventError) {
+        return NextResponse.json({ error: eventError.message }, { status: 500 });
+      }
+    }
   }
 
   const result = customSubject

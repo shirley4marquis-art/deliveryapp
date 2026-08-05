@@ -117,7 +117,7 @@ export async function signInAdmin(email: string, password: string) {
     .maybeSingle();
 
   if (adminError || !adminUser) {
-    return { error: "This Supabase user is not a TBC admin." };
+    return { error: "This Supabase user is not a Royal Runs admin." };
   }
 
   await setAdminSession({

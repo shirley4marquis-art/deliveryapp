@@ -6,8 +6,8 @@ values (
   'package-images',
   'package-images',
   true,
-  5242880,
-  array['image/jpeg', 'image/png', 'image/webp']
+  10485760,
+  null
 )
 on conflict (id) do update
 set

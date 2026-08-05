@@ -23,9 +23,24 @@ export type TrackingEvent = {
   created_at?: string;
 };
 
+export type CustomerEmailLog = {
+  id: string;
+  shipment_id: string;
+  receiver_email: string;
+  status: string;
+  subject: string;
+  sent_successfully: boolean;
+  error_message: string | null;
+  sent_at: string;
+  tracking_number: string;
+  shipment_status: string;
+};
+
 export type Shipment = {
   id: string;
   tracking_number: string;
+  external_order_id: string | null;
+  order_source: string | null;
   sender_name: string;
   sender_address: string;
   sender_city: string;
@@ -62,6 +77,8 @@ export type Shipment = {
 export type ShipmentInput = Omit<
   Shipment,
   | "id"
+  | "external_order_id"
+  | "order_source"
   | "created_at"
   | "updated_at"
   | "tracking_events"

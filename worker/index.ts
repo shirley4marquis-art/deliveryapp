@@ -7,6 +7,7 @@ import handler from "vinext/server/app-router-entry";
 
 interface Env {
   ASSETS: Fetcher;
+  AUTOMATION_CRON_SECRET: string;
   IMAGES: {
     input(stream: ReadableStream): {
       transform(options: Record<string, unknown>): {
@@ -24,7 +25,7 @@ interface ExecutionContext {
   passThroughOnException(): void;
 }
 
-export default {
+const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {
     const url = new URL(request.url);
     if (url.pathname === "/_vinext/image") {
@@ -45,4 +46,18 @@ export default {
     }
     return handler.fetch(request, env, ctx);
   },
+  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(
+      handler.fetch(
+        new Request("https://internal.royalruns/api/automation/email-sequence", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${env.AUTOMATION_CRON_SECRET}` },
+        }),
+        env,
+        ctx,
+      ),
+    );
+  },
 };
+
+export default worker;

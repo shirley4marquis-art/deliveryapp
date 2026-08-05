@@ -3,9 +3,11 @@ import { getAuthenticatedAdmin } from "@/lib/admin-auth";
 import { getSupabaseForUser } from "@/lib/supabase";
 import { generateTrackingNumber } from "@/lib/tracking";
 import { parseShipmentInput } from "@/lib/validation";
-import { fetchOSRMRoute, isMoving, isDelivered } from "@/lib/transit";
+import { fetchOSRMRoute, isMoving, isDelivered, routeDurationAtSpeed } from "@/lib/transit";
 import { sendRucoShipmentReceivedEmail } from "@/lib/email";
 import { isRucoSupplyShipment } from "@/lib/ruco";
+import { sourceStorageValue } from "@/lib/shipment-source";
+import { createDefaultEmailAutomation } from "@/lib/email-sequence-automation";
 
 export async function GET() {
   const admin = await getAuthenticatedAdmin();
@@ -71,22 +73,43 @@ export async function POST(request: Request) {
       if (route) {
         transitPatch.route_geometry = route.geometry;
         transitPatch.route_distance_km = route.distanceKm;
-        transitPatch.route_duration_minutes = route.durationMinutes;
+        transitPatch.route_duration_minutes = routeDurationAtSpeed(route.distanceKm);
       }
     }
 
-    const { data, error } = await supabase
+    const shipmentToInsert = {
+      ...s,
+      order_source: sourceStorageValue(s.sender_name),
+      ...transitPatch,
+      ...(createdAt ? { created_at: createdAt } : {}),
+    };
+
+    let { data, error } = await supabase
       .from("shipments")
-      .insert({
-        ...s,
-        ...transitPatch,
-        ...(createdAt ? { created_at: createdAt } : {}),
-      })
+      .insert(shipmentToInsert)
       .select()
       .single();
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    // Older deployments may not have the optional source-classification column
+    // yet. Sender details still identify Ruco shipments, so retrying without it
+    // allows shipment creation and the confirmation email to complete safely.
+    if (
+      error?.code === "PGRST204" &&
+      error.message.includes("'order_source' column")
+    ) {
+      const legacyShipment = { ...shipmentToInsert, order_source: undefined };
+      ({ data, error } = await supabase
+        .from("shipments")
+        .insert(legacyShipment)
+        .select()
+        .single());
+    }
+
+    if (error || !data) {
+      return NextResponse.json(
+        { error: error?.message || "Unable to create shipment." },
+        { status: 500 },
+      );
     }
 
     const { error: eventError } = await supabase.from("tracking_events").insert({
@@ -99,6 +122,12 @@ export async function POST(request: Request) {
 
     if (eventError) {
       return NextResponse.json({ error: eventError.message }, { status: 500 });
+    }
+
+    let automationWarning: string | undefined;
+    const { error: automationError } = await createDefaultEmailAutomation(data.id, data.created_at);
+    if (automationError) {
+      automationWarning = `Shipment created, but its email sequence could not be started: ${automationError.message}`;
     }
 
     let confirmationEmail:
@@ -139,7 +168,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(
-      { shipment: data, confirmationEmail },
+      { shipment: data, confirmationEmail, automationWarning },
       { status: 201 },
     );
   } catch (error) {

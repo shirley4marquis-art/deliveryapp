@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, RefreshCw, Save, Search, Trash2, PackagePlus, Mail, X, Users } from "lucide-react";
+import { Plus, RefreshCw, Save, Search, Trash2, PackagePlus, Mail, X, Users, MapPinned, Printer } from "lucide-react";
 import {
   AddressAutocomplete,
   type VerifiedAddress,
@@ -11,6 +12,7 @@ import { AdminRouteMap } from "@/components/admin-route-map";
 import { parcelStatuses, type ParcelStatus, type Shipment } from "@/lib/types";
 import { parsePastedOrder } from "@/lib/order-import";
 import { isRucoSupplyCustomer, isRucoSupplyShipment } from "@/lib/ruco";
+import { getShipmentSource } from "@/lib/shipment-source";
 
 const deliveryServices = [
   "Same-day delivery",
@@ -92,11 +94,19 @@ async function geocodeAddress(address: string) {
 
 type Toast = { message: string; type: "success" | "error" };
 
-function getOrderSourceTag(receiverName: string) {
-  if (isRucoSupplyCustomer(receiverName)) {
+function getOrderSourceTag(shipment: Shipment) {
+  const source = getShipmentSource(shipment);
+  if (source === "ruco") {
     return {
       label: "Ruco Supply",
       className: "border-yellow-300 bg-yellow-100 text-yellow-900",
+    };
+  }
+
+  if (source === "unclassified") {
+    return {
+      label: "Unclassified",
+      className: "border-slate-300 bg-slate-100 text-slate-800",
     };
   }
 
@@ -173,13 +183,12 @@ Customs & Clearance Team`,
     const imported = parsePastedOrder(pastedOrder);
 
     if (
-      imported.source === "Unknown sender" ||
       !imported.customerName ||
       !imported.customerEmail ||
       !imported.deliveryAddress
     ) {
       showToast(
-        "The order format was not recognised or required customer details are missing.",
+        "Add the customer's name, address, and email before generating the shipment.",
         "error",
       );
       return;
@@ -206,15 +215,15 @@ Customs & Clearance Team`,
       ...emptyShipment(),
       tracking_number: data.trackingNumber,
       sender_name: imported.source,
-      sender_address: "",
-      sender_city: "",
+      sender_address: "To be confirmed",
+      sender_city: "To be confirmed",
       receiver_name: imported.customerName,
       receiver_email: imported.customerEmail,
       receiver_address: imported.deliveryAddress,
       receiver_city: imported.deliveryCity,
       receiver_postcode: imported.deliveryPostcode,
       package_type: imported.items.join("; ") || "Customer order",
-      weight: "",
+      weight: "To be confirmed",
       delivery_service: /standard|royal mail/i.test(imported.courier)
         ? "Standard delivery (2–3 days)"
         : imported.courier,
@@ -540,6 +549,7 @@ Customs & Clearance Team`,
       | { sent: boolean; error?: string }
       | undefined;
     let uploadFailed = false;
+    let packageImageStored = true;
 
     if (shouldUploadBeforeRucoEmail && data.shipment?.id && newPackageImage) {
       const imageBody = new FormData();
@@ -557,14 +567,20 @@ Customs & Clearance Team`,
         );
       } else {
         confirmationEmail = uploadResult.confirmationEmail;
+        packageImageStored = uploadResult.imageStored !== false;
+        if (uploadResult.warning) {
+          setMessage(uploadResult.warning);
+        }
       }
     }
 
     if (!editingId && confirmationEmail) {
       if (confirmationEmail.sent) {
         setMessage(
-          shouldUploadBeforeRucoEmail
+          shouldUploadBeforeRucoEmail && packageImageStored
             ? "Ruco shipment created; its package photo was included in the confirmation email."
+            : shouldUploadBeforeRucoEmail
+              ? "Ruco shipment created; its package photo was attached to the confirmation email."
             : "Ruco shipment created and the details-confirmation email was sent.",
         );
       } else {
@@ -700,14 +716,35 @@ Customs & Clearance Team`,
     <div className="grid gap-8">
       <div className="flex flex-col gap-3 rounded-lg border border-[#c8d9f5] bg-[#f3f7ff] p-5 text-[#07152f] md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="text-2xl font-black">Admin Dashboard</h2>
+          <h2 className="text-2xl font-black">New Order Management</h2>
           <p className="text-sm font-medium text-[#10213f]">
-            Manage shipments, parcel statuses, and tracking timelines.
+            Import an incoming order or create a new shipment. Use the source
+            panels for existing shipment and tracking management.
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <a
+          <Link
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-[#07152f]"
+            href="/admin"
+          >
+            Admin home
+          </Link>
+          <Link
+            className="inline-flex items-center gap-2 rounded-lg border border-green-400 bg-green-50 px-4 py-2 text-sm font-bold text-green-900"
+            href="/admin/orders/one-connect"
+          >
+            <PackagePlus size={16} />
+            1:1 Connect orders
+          </Link>
+          <Link
             className="inline-flex items-center gap-2 rounded-lg border border-yellow-400 bg-yellow-50 px-4 py-2 text-sm font-bold text-yellow-950"
+            href="/admin/orders/ruco"
+          >
+            <Users size={16} />
+            Ruco Supply orders
+          </Link>
+          <a
+            className="hidden"
             href="#ruco-clients"
           >
             <Users size={16} />
@@ -730,7 +767,7 @@ Customs & Clearance Team`,
             New Shipment
           </button>
           <button
-            className="inline-flex items-center gap-2 rounded-lg border border-yellow-400 bg-yellow-100 px-4 py-2 text-sm font-bold text-yellow-950 disabled:opacity-50"
+            className="hidden"
             disabled={sendingRucoBatch}
             onClick={sendRucoVatBatch}
             type="button"
@@ -738,8 +775,12 @@ Customs & Clearance Team`,
             <Mail size={16} />
             {sendingRucoBatch ? "Preparing Ruco emails..." : "Send 4 Ruco VAT emails"}
           </button>
-          <button className="rounded-lg border border-[#0047bb] px-4 py-2 text-sm font-bold text-[#0047bb] hover:bg-white" onClick={logout} type="button">
-            Sign out
+          <button
+            className="inline-flex items-center gap-2 rounded-lg bg-[#ef3340] px-5 py-2.5 text-sm font-black text-white shadow-md transition hover:bg-red-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#07152f]"
+            onClick={logout}
+            type="button"
+          >
+            <X size={17} /> Sign out
           </button>
         </div>
       </div>
@@ -787,7 +828,7 @@ Customs & Clearance Team`,
       )}
 
       <section
-        className="rounded-xl border border-yellow-300 bg-gradient-to-br from-yellow-50 to-white p-5 shadow-sm"
+        className="hidden"
         id="ruco-clients"
       >
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -910,8 +951,8 @@ Customs & Clearance Team`,
           <div>
             <h3 className="text-xl font-black">Paste a new order</h3>
             <p className="mt-1 text-sm text-[#50627f]">
-              Supports Ruco Supply and 1:1 Connect order formats. Customer,
-              address, items, courier and totals are inspected automatically.
+              Supports Ruco Supply, 1:1 Connect, or just a customer name,
+              address, and email. Orders without a clear source are kept unclassified.
             </p>
           </div>
           <span className="rounded-full bg-[#f3f7ff] px-3 py-1 text-xs font-bold text-[#0047bb]">
@@ -930,12 +971,12 @@ Customs & Clearance Team`,
         </label>
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <button
-            className="inline-flex items-center gap-2 rounded-lg bg-[#07152f] px-5 py-3 text-sm font-bold text-white disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg bg-[#07152f] px-5 py-3 text-sm font-bold text-[#fff1cc] disabled:opacity-50"
             disabled={importingOrder || !pastedOrder.trim()}
             type="submit"
           >
             <PackagePlus size={16} />
-            {importingOrder ? "Inspecting order..." : "Inspect & prepare shipment"}
+            {importingOrder ? "Generating..." : "Generate"}
           </button>
           <button
             className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-bold"
@@ -1031,7 +1072,7 @@ Customs & Clearance Team`,
                   Package photo
                 </span>
                 <input
-                  accept="image/jpeg,image/png,image/webp"
+                  accept="image/*"
                   className="mt-2 block w-full rounded-lg border border-green-300 bg-white p-2 text-sm"
                   onChange={(event) =>
                     setNewPackageImage(event.target.files?.[0] || null)
@@ -1039,7 +1080,7 @@ Customs & Clearance Team`,
                   type="file"
                 />
                 <span className="mt-1 block text-xs text-[#50627f]">
-                  JPEG, PNG, or WebP; maximum 5 MB. Included in the first Ruco
+                  Any image format; maximum 10 MB. Included in the first Ruco
                   customer email.
                 </span>
               </label>
@@ -1123,11 +1164,11 @@ Customs & Clearance Team`,
                 Package photo for the first customer email
               </span>
               <span className="mt-1 block text-xs text-[#50627f]">
-                Optional. For a Ruco shipment, this JPEG, PNG, or WebP photo is
+                Optional. For a Ruco shipment, this image is
                 uploaded before the automatic confirmation email is sent.
               </span>
               <input
-                accept="image/jpeg,image/png,image/webp"
+                accept="image/*"
                 className="mt-3 block w-full text-sm"
                 onChange={(event) =>
                   setNewPackageImage(event.target.files?.[0] || null)
@@ -1180,7 +1221,7 @@ Customs & Clearance Team`,
           </div>
         </form>
 
-        <form className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm" onSubmit={addTimelineEvent}>
+        <form className="hidden" onSubmit={addTimelineEvent}>
           <h3 className="text-xl font-black">Add timeline event</h3>
           <label className="mt-5 block">
             <span className="text-sm font-bold text-[#10213f]">Shipment</span>
@@ -1230,7 +1271,7 @@ Customs & Clearance Team`,
         </form>
       </section>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="hidden">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <h3 className="text-xl font-black">All shipments</h3>
           <label className="flex h-11 min-w-0 items-center gap-2 rounded-lg border border-slate-300 px-3 md:w-80">
@@ -1251,7 +1292,7 @@ Customs & Clearance Team`,
             </div>
           ) : null}
           {!loadingShipments && filteredShipments.map((shipment) => {
-            const sourceTag = getOrderSourceTag(shipment.receiver_name);
+            const sourceTag = getOrderSourceTag(shipment);
 
             return (
               <article className="rounded-lg border border-slate-200 p-4" key={shipment.id}>
@@ -1287,9 +1328,18 @@ Customs & Clearance Team`,
                     ) : null}
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <button className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold" onClick={() => editShipment(shipment)} type="button">
-                      Edit
-                    </button>
+                    <Link
+                      className="inline-flex items-center gap-2 rounded-lg bg-[#0047bb] px-3 py-2 text-sm font-bold text-white"
+                      href={`/admin/tracking/${shipment.id}`}
+                    >
+                      <MapPinned size={15} /> Edit tracking
+                    </Link>
+                    <Link
+                      className="inline-flex items-center gap-2 rounded-lg border border-[#07152f] bg-[#fff1cc] px-3 py-2 text-sm font-bold text-[#07152f]"
+                      href={`/admin/labels/${shipment.id}`}
+                    >
+                      <Printer size={15} /> Shipping label
+                    </Link>
                     <button
                       className="inline-flex items-center gap-2 rounded-lg border border-[#0047bb] px-3 py-2 text-sm font-bold text-[#0047bb]"
                       onClick={() => openEmailComposer(shipment)}
@@ -1308,29 +1358,28 @@ Customs & Clearance Team`,
                         <Mail size={15} /> Prepare £110 VAT draft
                       </button>
                     ) : null}
-                    {shipment.current_status === "Parcel Collected" ? (
-                      <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-green-400 bg-green-50 px-3 py-2 text-sm font-bold text-green-900">
-                        <PackagePlus size={15} />
-                        {uploadingPackageImage === shipment.id
-                          ? "Uploading image..."
-                          : shipment.package_image_url
-                            ? "Replace package image"
-                            : "Add package image"}
-                        <input
-                          accept="image/jpeg,image/png,image/webp"
-                          className="sr-only"
-                          disabled={uploadingPackageImage === shipment.id}
-                          onChange={(event) => {
-                            void uploadPackageImage(
-                              shipment,
-                              event.target.files?.[0],
-                            );
-                            event.target.value = "";
-                          }}
-                          type="file"
-                        />
-                      </label>
-                    ) : null}
+                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-green-400 bg-green-50 px-3 py-2 text-sm font-bold text-green-900">
+                      <PackagePlus size={15} />
+                      {uploadingPackageImage === shipment.id
+                        ? "Uploading image..."
+                        : shipment.package_image_url
+                          ? "Replace package image"
+                          : "Add package image"}
+                      <input
+                        accept="image/*"
+                        capture="environment"
+                        className="sr-only"
+                        disabled={uploadingPackageImage === shipment.id}
+                        onChange={(event) => {
+                          void uploadPackageImage(
+                            shipment,
+                            event.target.files?.[0],
+                          );
+                          event.target.value = "";
+                        }}
+                        type="file"
+                      />
+                    </label>
                     <button className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm font-bold text-red-700" onClick={() => deleteShipment(shipment.id)} type="button">
                       <Trash2 size={15} /> Delete
                     </button>

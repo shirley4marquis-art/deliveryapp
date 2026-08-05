@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MapPin, Navigation, Route, Zap } from "lucide-react";
+import { MapPin, Pause, Route, Zap } from "lucide-react";
 import type { Shipment } from "@/lib/types";
 import {
   calculateETA,
@@ -11,6 +11,7 @@ import {
   interpolatePosition,
   isDelivered,
   isMoving,
+  LIVE_TRACKING_SPEED_KMH,
 } from "@/lib/transit";
 
 type StaticPoint = { label: string; lat: number; lng: number; color: string };
@@ -37,7 +38,7 @@ function isCoord(v: number | null | undefined): v is number {
 function LiveTrackingPanel({ shipment }: { shipment: Shipment }) {
   const [progress, setProgress] = useState(0);
   const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(0);
 
   const geometry = shipment.route_geometry;
   const duration = shipment.route_duration_minutes ?? 0;
@@ -86,7 +87,13 @@ function LiveTrackingPanel({ shipment }: { shipment: Shipment }) {
       </div>
 
       {/* Stats grid */}
-      <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+      <div className="mt-3 grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
+        <div className="rounded-lg bg-white p-2 shadow-sm">
+          <p className="text-xs font-semibold text-slate-500">Travel speed</p>
+          <p className="mt-0.5 text-sm font-black text-[#07152f]">
+            {LIVE_TRACKING_SPEED_KMH} km/h
+          </p>
+        </div>
         <div className="rounded-lg bg-white p-2 shadow-sm">
           <p className="text-xs font-semibold text-slate-500">Distance left</p>
           <p className="mt-0.5 text-sm font-black text-[#07152f]">
@@ -115,7 +122,7 @@ function LiveTrackingPanel({ shipment }: { shipment: Shipment }) {
 
       {pos && (
         <p className="mt-2 text-center text-xs text-slate-400">
-          Last position update: {new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(new Date())}
+          Last position update: {new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(new Date(now))}
         </p>
       )}
     </div>
@@ -248,6 +255,21 @@ export function TrackingMap({ shipment }: { shipment: Shipment }) {
         bounds.extend([pos.lat, pos.lng]);
       }
 
+      if (
+        !liveActive &&
+        !delivered &&
+        isCoord(shipment.current_lat) &&
+        isCoord(shipment.current_lng)
+      ) {
+        L.marker([shipment.current_lat, shipment.current_lng], {
+          icon: makeIcon("#f59e0b", "⏸", 36),
+          zIndexOffset: 1000,
+        })
+          .addTo(map)
+          .bindPopup("<strong>Your parcel</strong><br>Tracking paused");
+        bounds.extend([shipment.current_lat, shipment.current_lng]);
+      }
+
       // Delivered — parcel marker at destination
       if (delivered && staticPoints.length >= 2) {
         const dest = staticPoints[staticPoints.length - 1];
@@ -310,8 +332,8 @@ export function TrackingMap({ shipment }: { shipment: Shipment }) {
         )}
         {!liveActive && isCoord(shipment.current_lat) && isCoord(shipment.current_lng) && (
           <span className="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm font-bold text-[#0047bb]">
-            <Navigation aria-hidden="true" size={16} />
-            Location recorded
+            <Pause aria-hidden="true" size={16} />
+            Tracking paused · location recorded
           </span>
         )}
       </div>

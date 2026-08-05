@@ -25,6 +25,8 @@ const moneyPattern = /(?:£|GBP\s*)\s*([\d,]+(?:\.\d{1,2})?)/i;
 export function ThermalReceiptGenerator() {
   const [source, setSource] = useState("");
   const [message, setMessage] = useState("");
+  const [receiptMode, setReceiptMode] = useState<"auto" | "custom">("auto");
+  const [paperWidth, setPaperWidth] = useState<58 | 80>(80);
   const [form, setForm] = useState<ReceiptForm>(emptyReceipt());
 
   const subtotal = useMemo(
@@ -38,13 +40,27 @@ export function ThermalReceiptGenerator() {
     ? total - total / (1 + form.vatRate / 100)
     : calculatedVat;
   const net = total - vat;
-  const isAppleReceipt = isApplePurchase(source, form.items);
+  const isAppleReceipt = receiptMode === "auto" && isApplePurchase(source, form.items);
 
   function importInvoice() {
     const imported = parsePastedOrder(source);
     const parsedItems = parseReceiptItems(source);
     const declaredTotal = parseMoney(imported.total);
     const applePurchase = isApplePurchase(source, parsedItems);
+    const importedItems = parsedItems.length
+      ? parsedItems
+      : imported.items.map((name, index) => ({
+          id: Date.now() + index,
+          name: name.replace(/\s*[×x]\s*\d+$/i, ""),
+          quantity: Number(name.match(/[×x]\s*(\d+)$/i)?.[1] || 1),
+          unitPrice: 0,
+        }));
+    const receiptItems = applePurchase
+      ? importedItems.map((item) => ({
+          ...item,
+          unitPrice: appleProductBasePrice(item.name) ?? item.unitPrice,
+        }))
+      : importedItems;
     setForm((current) => ({
       ...current,
       merchant: applePurchase
@@ -56,20 +72,16 @@ export function ThermalReceiptGenerator() {
       receiptNumber: imported.orderReference || current.receiptNumber,
       customer: imported.customerName,
       customerEmail: imported.customerEmail,
-      declaredTotal,
-      items: parsedItems.length
-        ? parsedItems
-        : imported.items.map((name, index) => ({
-            id: Date.now() + index,
-            name: name.replace(/\s*[×x]\s*\d+$/i, ""),
-            quantity: Number(name.match(/[×x]\s*(\d+)$/i)?.[1] || 1),
-            unitPrice: 0,
-          })),
+      vatRate: applePurchase ? 20 : current.vatRate,
+      declaredTotal: applePurchase ? null : declaredTotal,
+      items: receiptItems,
     }));
     setMessage(
-      parsedItems.some((item) => item.unitPrice > 0)
-        ? "Invoice imported. Check the values before printing."
-        : "Order imported. Add the product price shown on the invoice before printing.",
+      applePurchase
+        ? "VAT-inclusive Apple prices applied. The 20% VAT portion has been separated automatically."
+        : parsedItems.some((item) => item.unitPrice > 0)
+          ? "Invoice imported. Check the values before printing."
+          : "Order imported. Add the product price shown on the invoice before printing.",
     );
   }
 
@@ -88,11 +100,11 @@ export function ThermalReceiptGenerator() {
           <Link className="inline-flex items-center gap-2 text-sm font-bold text-blue-200 hover:text-white" href="/admin">
             <ArrowLeft size={16} /> Back to admin
           </Link>
-          <h1 className="mt-3 text-3xl font-black">80 mm receipt printer</h1>
-          <p className="mt-1 text-sm text-blue-100">Paste an invoice, verify the purchase details, then print.</p>
+          <h1 className="mt-3 text-3xl font-black">Thermal receipt builder</h1>
+          <p className="mt-1 text-sm text-blue-100">Copy purchase details into an editable receipt, then print at the exact roll width.</p>
         </div>
         <button className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#fff1cc] px-5 py-3 font-black text-[#07152f]" onClick={() => window.print()} type="button">
-          <Printer size={18} /> Print 80 mm receipt
+          <Printer size={18} /> Print {paperWidth} mm receipt
         </button>
       </header>
 
@@ -108,6 +120,18 @@ export function ThermalReceiptGenerator() {
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="font-black text-[#07152f]">Receipt information</h2>
             <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <label className="block text-xs font-black text-[#1f3556]">Template mode
+                <select className="mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal" onChange={(event) => setReceiptMode(event.target.value as "auto" | "custom")} value={receiptMode}>
+                  <option value="auto">Auto-detect Apple</option>
+                  <option value="custom">Custom merchant receipt</option>
+                </select>
+              </label>
+              <label className="block text-xs font-black text-[#1f3556]">Printer roll size
+                <select className="mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-normal" onChange={(event) => setPaperWidth(Number(event.target.value) as 58 | 80)} value={paperWidth}>
+                  <option value={80}>80 mm receipt printer</option>
+                  <option value={58}>58 mm receipt printer</option>
+                </select>
+              </label>
               <Field label="Merchant" value={form.merchant} onChange={(merchant) => setForm({ ...form, merchant })} />
               <Field label="Receipt / order number" value={form.receiptNumber} onChange={(receiptNumber) => setForm({ ...form, receiptNumber })} />
               <Field label="Customer" value={form.customer} onChange={(customer) => setForm({ ...form, customer })} />
@@ -142,9 +166,9 @@ export function ThermalReceiptGenerator() {
 
         <section className="preview-shell self-start overflow-auto rounded-2xl bg-slate-300 p-5 xl:sticky xl:top-5">
           {isAppleReceipt ? (
-            <AppleReceipt form={form} net={net} total={total} vat={vat} />
+            <AppleReceipt form={form} net={net} paperWidth={paperWidth} total={total} vat={vat} />
           ) : (
-          <article className="thermal-receipt mx-auto bg-white px-[4mm] py-[5mm] font-mono text-black">
+          <article className="thermal-receipt mx-auto bg-white px-[4mm] py-[5mm] font-mono text-black" style={{ width: `${paperWidth}mm` }}>
             <div className="text-center">
               <ReceiptText className="mx-auto" size={30} strokeWidth={2.5} />
               <h2 className="mt-2 text-[18px] font-black uppercase">{form.merchant || "Merchant"}</h2>
@@ -181,14 +205,14 @@ export function ThermalReceiptGenerator() {
       </div>
 
       <style jsx global>{`
-        .thermal-receipt { box-sizing: border-box; min-height: 120mm; width: 80mm; print-color-adjust: exact; }
+        .thermal-receipt { box-sizing: border-box; min-height: 120mm; print-color-adjust: exact; }
         .thermal-receipt * { box-sizing: border-box; }
         @media print {
-          @page { margin: 0; size: 80mm auto; }
-          html, body { background: white !important; margin: 0 !important; padding: 0 !important; width: 80mm !important; }
+          @page { margin: 0; size: ${paperWidth}mm auto; }
+          html, body { background: white !important; margin: 0 !important; padding: 0 !important; width: ${paperWidth}mm !important; }
           body > * { visibility: hidden; }
           .thermal-receipt, .thermal-receipt * { visibility: visible; }
-          .thermal-receipt { left: 0; margin: 0; min-height: 0; position: absolute; top: 0; width: 80mm; }
+          .thermal-receipt { left: 0; margin: 0; min-height: 0; position: absolute; top: 0; width: ${paperWidth}mm !important; }
           .no-print, .preview-shell { border: 0 !important; margin: 0 !important; padding: 0 !important; }
         }
       `}</style>
@@ -196,14 +220,14 @@ export function ThermalReceiptGenerator() {
   );
 }
 
-function AppleReceipt({ form, net, total, vat }: { form: ReceiptForm; net: number; total: number; vat: number }) {
+function AppleReceipt({ form, net, paperWidth, total, vat }: { form: ReceiptForm; net: number; paperWidth: 58 | 80; total: number; vat: number }) {
   const transaction = form.receiptNumber || "—";
   const digits = transaction.replace(/\D/g, "");
   const authCode = digits.slice(-6).padStart(6, "0");
   const account = digits.slice(-4).padStart(4, "0");
 
   return (
-    <article className="thermal-receipt apple-receipt mx-auto bg-white px-[5mm] py-[6mm] font-mono text-black">
+    <article className="thermal-receipt apple-receipt mx-auto bg-white px-[5mm] py-[6mm] font-mono text-black" style={{ width: `${paperWidth}mm` }}>
       <div className="text-center">
         <AppleMark />
         <p className="mt-5 text-[12px] font-bold leading-[1.35]">
@@ -220,7 +244,7 @@ function AppleReceipt({ form, net, total, vat }: { form: ReceiptForm; net: numbe
         {form.items.length ? form.items.map((item) => (
           <div className="mt-1 flex justify-between gap-2 text-[11px]" key={item.id}>
             <span className="min-w-0 break-words">{item.quantity} {item.name || "Apple product"}</span>
-            <span className="shrink-0">{money(item.quantity * item.unitPrice)}</span>
+            <span className="shrink-0">{money(item.quantity * item.unitPrice * (1 + form.vatRate / 100))}</span>
           </div>
         )) : <p className="text-[11px]">1 Apple product</p>}
       </div>
@@ -274,6 +298,14 @@ function parseReceiptItems(text: string): ReceiptItem[] {
 function isApplePurchase(source: string, items: ReceiptItem[]) {
   const productNames = items.map((item) => item.name).join(" ");
   return /\b(?:apple|iphone|ipad|macbook|imac|airpods|apple\s*watch|vision\s*pro|homepod)\b/i.test(`${source} ${productNames}`);
+}
+
+function appleProductBasePrice(name: string) {
+  const vatDivisor = 1.2;
+  if (/\bairpods?\s+max\b/i.test(name)) return 499 / vatDivisor;
+  if (/\bairpods?\b/i.test(name)) return 165 / vatDivisor;
+  if (/\b(?:iphone|apple\s+phone|phone)\b/i.test(name)) return 1199 / vatDivisor;
+  return null;
 }
 
 function parseMoney(value: string) { const match = value.match(moneyPattern); return match ? Number(match[1].replace(/,/g, "")) : null; }

@@ -242,6 +242,7 @@ function generateEmailHtml(data: EmailData, config: StatusConfig): string {
               <p style="color:#07152f;font-size:14px;font-weight:700;margin:0 0 4px;">Royal Runs Delivery</p>
               <p style="color:#50627f;font-size:12px;margin:0 0 2px;">📧 ${SUPPORT_EMAIL}</p>
               <p style="color:#50627f;font-size:12px;margin:0 0 12px;">📞 07346 535643</p>
+              <p style="color:#0047bb;font-size:12px;font-weight:700;margin:0 0 12px;">You can reply directly to this email. Our office team will receive your response.</p>
               <p style="color:#9bb8ea;font-size:11px;margin:0;">
                 This email was sent because a Royal Runs Delivery shipment with tracking number
                 <strong>${data.trackingNumber}</strong> has been updated.
@@ -615,7 +616,7 @@ function generateCustomsHtml(data: CustomsEmailData): string {
             <td style="padding:20px 36px;background:#f8faff;border-top:1px solid #e2e8f0;">
               <p style="color:#9bb8ea;font-size:11px;margin:0;text-align:center;">
                 This notice was sent regarding parcel <strong>${data.trackingNumber}</strong>.
-                Reference your tracking number in all correspondence with Royal Runs Delivery.
+                Reply directly to this email and reference your tracking number in all correspondence with Royal Runs Delivery.
               </p>
             </td>
           </tr>

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { getSupabaseServiceRole } from "@/lib/supabase";
 
-const OFFICE_EMAIL = "office@royalruns.co.uk";
+const FORWARD_TO_EMAIL = process.env.RESEND_FORWARD_TO_EMAIL?.trim() || "";
 const FORWARD_FROM =
   process.env.RESEND_FROM_EMAIL ||
   "Royal Runs Delivery <office@royalruns.co.uk>";
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
 
   // Prevent an accidental forwarding loop if the office mailbox sends to the
   // Resend receiving address.
-  if (senderEmail === OFFICE_EMAIL) {
+  if (FORWARD_TO_EMAIL && senderEmail === FORWARD_TO_EMAIL.toLowerCase()) {
     return NextResponse.json({ ok: true, ignored: true });
   }
 
@@ -65,10 +65,14 @@ export async function POST(request: Request) {
 
   if (senderEmail) {
     const supabase = getSupabaseServiceRole();
-    const { data: shipment } = await supabase
+    const trackingNumber = extractTrackingNumber(event.data.subject || "");
+    let shipmentQuery = supabase
       .from("shipments")
-      .select("id,tracking_number,receiver_name,receiver_email,current_status")
-      .ilike("receiver_email", senderEmail)
+      .select("id,tracking_number,receiver_name,receiver_email,current_status");
+    shipmentQuery = trackingNumber
+      ? shipmentQuery.ilike("tracking_number", trackingNumber)
+      : shipmentQuery.ilike("receiver_email", senderEmail);
+    const { data: shipment } = await shipmentQuery
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -94,18 +98,25 @@ export async function POST(request: Request) {
     }
   }
 
+  if (!FORWARD_TO_EMAIL) {
+    return NextResponse.json({ ok: true, stored: true });
+  }
+
   const { data, error } = await resend.emails.receiving.forward({
     emailId: event.data.email_id,
     from: FORWARD_FROM,
-    to: OFFICE_EMAIL,
+    to: FORWARD_TO_EMAIL,
     passthrough: true,
   });
 
+  // The reply has already been stored and announced. A mailbox forwarding
+  // problem must not make Resend retry the webhook and create duplicate replies.
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 502 });
+    console.error("Customer reply forwarding failed", error.message);
+    return NextResponse.json({ ok: true, stored: true, forwarded: false });
   }
 
-  return NextResponse.json({ ok: true, forwardedEmailId: data?.id });
+  return NextResponse.json({ ok: true, stored: true, forwardedEmailId: data?.id });
 }
 
 function extractEmailAddress(value: string) {
@@ -116,6 +127,10 @@ function extractEmailAddress(value: string) {
   )
     .trim()
     .toLowerCase();
+}
+
+function extractTrackingNumber(value: string) {
+  return value.match(/\bRR\d+GB\b/i)?.[0]?.toUpperCase() || "";
 }
 
 async function notifyTelegramOfReply({

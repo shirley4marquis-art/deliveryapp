@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   Boxes,
+  Inbox,
   LogOut,
   PackagePlus,
   ShoppingBag,
@@ -13,6 +14,17 @@ import {
 } from "lucide-react";
 
 const panels = [
+  {
+    title: "Email inbox",
+    description:
+      "Check customer replies and review every message sent from Royal Runs Delivery.",
+    href: "/admin/email",
+    action: "Open email inbox",
+    icon: Inbox,
+    accent: "border-sky-200 bg-gradient-to-br from-sky-50 to-white",
+    iconClass: "bg-sky-100 text-sky-800",
+    actionClass: "text-sky-800",
+  },
   {
     title: "Receipt printer",
     description:
@@ -111,7 +123,7 @@ export function AdminPortal() {
             Open one panel to manage only the orders relevant to that task.
           </p>
         </div>
-        <div className="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-5">
+        <div className="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {panels.map((panel) => {
             const Icon = panel.icon;
             return (

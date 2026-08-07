@@ -34,6 +34,7 @@ export type CustomerEmailLog = {
   sent_at: string;
   tracking_number: string;
   shipment_status: string;
+  order_source: string | null;
 };
 
 export type Shipment = {

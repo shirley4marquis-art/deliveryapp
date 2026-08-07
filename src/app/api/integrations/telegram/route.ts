@@ -463,9 +463,20 @@ async function createShipmentFromOrder(chatId: number, rawOrder: string) {
       throw new Error(existingError.message);
     }
     if (existing) {
+      const { data: lastEmail } = await supabase
+        .from("shipment_email_logs")
+        .select("status, sent_at")
+        .eq("shipment_id", existing.id)
+        .eq("sent_successfully", true)
+        .order("sent_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const emailStatusLine = lastEmail
+        ? `Already contacted — last email "${lastEmail.status}" sent ${new Date(lastEmail.sent_at).toLocaleString("en-GB")}.`
+        : "No emails sent yet for this client — new/unprocessed, use /sendemail to begin.";
       await sendTelegramMessage(
         chatId,
-        `That order already exists as ${existing.tracking_number}.\n${shipmentSummary(existing)}`,
+        `That order already exists as ${existing.tracking_number}.\n${emailStatusLine}\n\n${shipmentSummary(existing)}`,
       );
       return;
     }

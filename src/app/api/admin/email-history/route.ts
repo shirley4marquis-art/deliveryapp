@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   let query = supabase
     .from("shipment_email_logs")
     .select(
-      "id,shipment_id,receiver_email,status,subject,sent_successfully,error_message,sent_at,shipments(tracking_number,current_status)",
+      "id,shipment_id,receiver_email,status,subject,sent_successfully,error_message,sent_at,shipments(tracking_number,current_status,order_source)",
     )
     .order("sent_at", { ascending: false })
     .limit(500);
@@ -42,6 +42,7 @@ export async function GET(request: Request) {
       sent_at: log.sent_at,
       tracking_number: related?.tracking_number || "",
       shipment_status: related?.current_status || "",
+      order_source: related?.order_source || null,
     };
   });
 
